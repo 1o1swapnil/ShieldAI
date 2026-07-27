@@ -4,6 +4,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-27
+
 ### Added
 - CORS middleware (`src/cors.js`) — the API previously had none, which
   would break every browser request once the web app and API sit on
