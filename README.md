@@ -1,5 +1,7 @@
 # ShieldAI
 
+[![CI](https://github.com/1o1swapnil/ShieldAI/actions/workflows/ci.yml/badge.svg)](https://github.com/1o1swapnil/ShieldAI/actions/workflows/ci.yml)
+
 Shadow AI governance platform. Implements the v1.1 design addendum:
 
 - **Section 1** — honest coverage-map reframing, native-app egress detection, SSO OAuth-grant discovery
