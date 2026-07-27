@@ -5,8 +5,9 @@ import TrustSecurity from './pages/TrustSecurity.jsx';
 import UnverifiedToolsQueue from './pages/UnverifiedToolsQueue.jsx';
 import CoverageMap from './pages/CoverageMap.jsx';
 import DiscoveredIntegrations from './pages/DiscoveredIntegrations.jsx';
+import ActivitySummary from './pages/ActivitySummary.jsx';
 
-const ORG_SCOPED_TABS = ['admin', 'unverified', 'coverage', 'integrations'];
+const ORG_SCOPED_TABS = ['admin', 'coverage', 'unverified', 'integrations', 'activity'];
 
 export default function App() {
   const [tab, setTab] = useState('admin');
@@ -17,6 +18,7 @@ export default function App() {
       <nav style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
         <button onClick={() => setTab('admin')} disabled={tab === 'admin'}>Admin Settings</button>
         <button onClick={() => setTab('coverage')} disabled={tab === 'coverage'}>Coverage Map</button>
+        <button onClick={() => setTab('activity')} disabled={tab === 'activity'}>Activity Summary</button>
         <button onClick={() => setTab('unverified')} disabled={tab === 'unverified'}>Unverified Tools</button>
         <button onClick={() => setTab('integrations')} disabled={tab === 'integrations'}>Discovered Integrations</button>
         <button onClick={() => setTab('employee')} disabled={tab === 'employee'}>What ShieldAI Sees</button>
@@ -32,6 +34,7 @@ export default function App() {
 
       {tab === 'admin' && <JurisdictionSettings orgId={orgId} />}
       {tab === 'coverage' && <CoverageMap orgId={orgId} />}
+      {tab === 'activity' && <ActivitySummary orgId={orgId} />}
       {tab === 'unverified' && <UnverifiedToolsQueue orgId={orgId} />}
       {tab === 'integrations' && <DiscoveredIntegrations orgId={orgId} />}
       {tab === 'employee' && <WhatShieldAISees />}

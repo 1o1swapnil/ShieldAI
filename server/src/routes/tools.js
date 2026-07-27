@@ -1,65 +1,39 @@
 const express = require('express');
 const pool = require('../db');
-const { domainTokenFeature, titleTokenFeature } = require('../classifier/textSignals');
-const { fingerprintFeature } = require('../classifier/fingerprint');
-const { certFeature } = require('../classifier/certFeature');
-const { registrationAgeFeature } = require('../classifier/registrationAgeFeature');
-const { aggregateFeature } = require('../classifier/aggregate');
-const { getTlsCertIssuerOrg, getDomainAgeDays } = require('../classifier/collectors');
-const { scoreFeatures, defaultActionFor, explain } = require('../classifier/score');
+const { defaultActionFor, explain } = require('../classifier/score');
+const { classifyDomain } = require('../classifier/classifyDomain');
+const { upsertUnverifiedTool } = require('../classifier/queue');
 
 const router = express.Router();
 
 // Entry point for "a previously-unseen domain visited by a monitored user"
 // (2.1). Runs the full feature pipeline and, above the alert-fatigue floor,
-// queues the domain for admin review.
+// queues the domain for admin review. Manual/direct-test endpoint — the
+// real ingestion path is POST /activity/events (Section 8), which computes
+// aggregate org-behavior signals from stored events instead of trusting
+// client-supplied numbers.
 router.post('/classify', async (req, res) => {
   const { org_id, domain, title, script_hints, distinct_users, avg_session_seconds } = req.body || {};
   if (!org_id || !domain) {
     return res.status(400).json({ error: 'org_id and domain are required' });
   }
 
-  const [issuerOrg, ageDays] = await Promise.all([
-    getTlsCertIssuerOrg(domain).catch(() => null),
-    getDomainAgeDays(domain).catch(() => null),
-  ]);
-
-  const featureSnapshot = {
+  const { confidence, featureSnapshot, defaultAction, explanation } = await classifyDomain({
     domain,
-    titleText: title || null,
-    domainTokens: domainTokenFeature(domain),
-    titleTokens: titleTokenFeature(title),
-    fingerprint: fingerprintFeature(script_hints),
-    cert: certFeature(issuerOrg),
-    registrationAge: registrationAgeFeature(ageDays),
-    aggregate: aggregateFeature({ distinctUsers: distinct_users, avgSessionSeconds: avg_session_seconds }),
-  };
-
-  const confidence = scoreFeatures(featureSnapshot);
-  const defaultAction = defaultActionFor(confidence);
+    title,
+    scriptHints: script_hints,
+    distinctUsers: distinct_users,
+    avgSessionSeconds: avg_session_seconds,
+  });
 
   if (!defaultAction) {
     // <60: logged but not flagged, to avoid alert fatigue.
     return res.json({ surfaced: false, ml_confidence: confidence });
   }
 
-  const { rows } = await pool.query(
-    `INSERT INTO unverified_tools_queue (org_id, domain, ml_confidence, feature_snapshot)
-     VALUES ($1, $2, $3, $4)
-     ON CONFLICT (org_id, domain) DO UPDATE SET
-       ml_confidence = EXCLUDED.ml_confidence,
-       feature_snapshot = EXCLUDED.feature_snapshot,
-       times_seen = unverified_tools_queue.times_seen + 1
-     RETURNING id, domain, ml_confidence, times_seen, first_seen_at, review_status`,
-    [org_id, domain, confidence, featureSnapshot]
-  );
+  const queued = await upsertUnverifiedTool(pool, { orgId: org_id, domain, confidence, featureSnapshot });
 
-  res.json({
-    surfaced: true,
-    default_action: defaultAction,
-    explanation: explain(featureSnapshot),
-    ...rows[0],
-  });
+  res.json({ surfaced: true, default_action: defaultAction, explanation, ...queued });
 });
 
 // Paginated queue, sorted by ml_confidence DESC (2.5).

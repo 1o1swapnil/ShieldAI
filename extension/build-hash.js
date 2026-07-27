@@ -9,6 +9,7 @@ const crypto = require('crypto');
 const FILES = [
   'manifest.json',
   'background.js',
+  'content.js',
   'notice.html',
   'notice.js',
   'permission-request.html',

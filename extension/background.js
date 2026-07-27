@@ -18,10 +18,49 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     chrome.storage.local.set({ optionalHostPermissionGranted: message.granted }, () => {
       sendResponse({ ok: true });
       reportConfig();
+      if (message.granted) registerUnknownDomainScan();
     });
     return true;
   }
+  if (message.type === 'page-visit') {
+    reportPageVisit(message, sender.tab && sender.tab.id);
+    return false;
+  }
 });
+
+// 3.1: only scan domains outside the known-tool list once the user granted
+// the optional <all_urls> permission — the known-150 list is already
+// covered by the static content_scripts entry in manifest.json.
+function registerUnknownDomainScan() {
+  chrome.scripting.registerContentScripts([
+    {
+      id: 'shieldai-unknown-domain-scan',
+      matches: ['<all_urls>'],
+      js: ['content.js'],
+      runAt: 'document_idle',
+    },
+  ]).catch(() => {}); // already registered on a prior grant
+}
+
+// Section 8: forward the content script's single DOM read to the real
+// activity-ingestion endpoint. One tab = one session for duration purposes.
+async function reportPageVisit(message, tabId) {
+  const { orgId, userId } = await chrome.storage.local.get(['orgId', 'userId']);
+  if (!orgId || !userId) return;
+
+  await fetch(`${API_BASE}/activity/events`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      org_id: orgId,
+      user_id: userId,
+      domain: message.domain,
+      title: message.title,
+      script_hints: message.scriptHints,
+      session_id: tabId != null ? `tab-${tabId}` : null,
+    }),
+  }).catch(() => {}); // best-effort; a dropped event isn't worth retry complexity here
+}
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === POLL_ALARM) reportConfig();

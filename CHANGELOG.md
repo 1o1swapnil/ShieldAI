@@ -4,6 +4,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.0]
+
+### Added
+- Activity events pipeline (v1.0 base, Section 8): `activity_events` table,
+  `POST /activity/events` ingestion endpoint, `GET /activity/events` log,
+  `GET /activity/summary` per-tool usage rollup, an Activity Summary
+  admin page, and an extension content script (static on the known-tool
+  domains, dynamically registered on `<all_urls>` once the optional
+  permission is granted) that feeds it.
+- The unknown-tool classifier's aggregate-usage signal (distinct users,
+  session length) is now computed from real stored activity, not trusted
+  client-supplied numbers — shared via a new `classifyDomain`/`queue`
+  module used by both `/tools/classify` and `/activity/events`.
+
+### Fixed
+- A thrown/rejected error in any async route handler crashed the entire
+  server process (no error-handling middleware existed). Upgraded to
+  Express 5, which forwards async rejections to error middleware instead
+  of crashing, and added that middleware.
+- `activity_events.session_id` was typed `UUID` but extension-generated
+  session ids (`"tab-<tabId>"`) aren't UUIDs; changed to `VARCHAR(64)`.
+
 ## [0.1.0] - 2026-07-27
 
 ### Added

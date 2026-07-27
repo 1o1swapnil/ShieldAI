@@ -7,6 +7,7 @@ const toolsRouter = require('./routes/tools');
 const coverageRouter = require('./routes/coverage');
 const nativeAppRouter = require('./routes/nativeApp');
 const integrationsRouter = require('./routes/integrations');
+const activityRouter = require('./routes/activity');
 
 const app = express();
 app.use(express.json());
@@ -18,6 +19,14 @@ app.use('/extension', extensionRouter);
 app.use('/tools', toolsRouter);
 app.use('/native-app', nativeAppRouter);
 app.use('/integrations', integrationsRouter);
+app.use('/activity', activityRouter);
+
+// Express 5 forwards a rejected async handler here instead of crashing the
+// process — one bad request must not take down every other org's traffic.
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({ error: 'internal server error' });
+});
 
 const port = process.env.PORT || 3000;
 if (require.main === module) {

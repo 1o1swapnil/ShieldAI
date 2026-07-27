@@ -33,3 +33,5 @@ export const reviewDiscoveredIntegration = (id, status) =>
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status }),
   }).then(json);
+
+export const getActivitySummary = (orgId) => fetch(`${API_BASE}/activity/summary?org_id=${orgId}`).then(json);

@@ -6,7 +6,7 @@
   "background": {
     "service_worker": "background.js"
   },
-  "permissions": ["storage", "alarms", "declarativeNetRequestWithHostAccess"],
+  "permissions": ["storage", "alarms", "scripting", "declarativeNetRequestWithHostAccess"],
   "optional_host_permissions": ["<all_urls>"],
   "host_permissions": [],
   "declarative_net_request": {
@@ -17,5 +17,12 @@
         "path": "rules.json"
       }
     ]
-  }
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://chatgpt.com/*", "https://claude.ai/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
 }
