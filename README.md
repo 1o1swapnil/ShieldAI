@@ -15,6 +15,7 @@ Also includes v1.0 base pieces the addendum assumed already existed:
 - real authentication + SSO (Sections 6-7): password login, JWT sessions, a generic OIDC connector (Okta/Azure AD/any compliant IdP), and org/role authorization on every admin-dashboard route — replacing the "trust whatever org_id the client sends" model every earlier endpoint used
 - device-token auth (Section 7) for the extension's own ingestion calls: an admin-issued install token exchanges once for a long-lived, individually revocable device token, closing the last "trust whatever org_id/user_id the client sends" gap
 - CORS, and email verification before an account or a device gets a working credential — closes the "type any email, get attributed to it" identity gap
+- Rate limiting on `/auth/login` (per-IP and per-email) and `/auth/register` (per-IP) — closes the open brute-force/credential-stuffing gap
 
 ## Structure
 
@@ -67,6 +68,8 @@ npm start   # listens on PORT (default 3000)
 ```
 
 Set `JWT_SECRET` in production (an ephemeral one is generated per-process otherwise — fine for local dev, invalidates sessions on every restart). For SSO, set `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URI` (any standards-compliant OIDC provider — Okta, Azure AD, etc.) and `WEB_ORIGIN` (used for both the SSO callback redirect and CORS — set it to the web app's real origin; comma-separate for multiple).
+
+`/auth/login` and `/auth/register` are rate-limited by `req.ip` (per-IP) and, for login, also by email. Behind a real reverse proxy/load balancer, call `app.set('trust proxy', ...)` in `src/index.js` with the correct hop count — otherwise every client behind the proxy shares Express's default IP (the proxy's own address) and the per-IP limiter becomes either useless or a shared bucket for everyone.
 
 No real mail provider is wired up (`src/email.js`) — verification links are logged to stdout in dev. Set `SMTP_HOST` only once you've actually implemented sending there; until then it just fails loudly instead of silently pretending to send.
 

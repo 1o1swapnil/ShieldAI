@@ -4,16 +4,41 @@ const { hashPassword, verifyPassword } = require('../auth/passwords');
 const { signToken, verifyToken } = require('../auth/jwt');
 const { requireAuth } = require('../auth/middleware');
 const { sendVerificationEmail } = require('../email');
+const { createRateLimiter } = require('../rateLimit');
 
 const router = express.Router();
 
 const WEB_ORIGIN = process.env.WEB_ORIGIN || 'http://localhost:5173';
 
+// Brute-force guards. Two independent limiters on login: per-IP catches a
+// script hammering many different accounts from one source; per-email
+// catches many sources hammering one account (distributed credential
+// stuffing). req.ip reflects the load balancer's address unless
+// `app.set('trust proxy', ...)` is configured for the real deployment.
+const registerLimiter = createRateLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  keyGenerator: (req) => req.ip,
+  message: 'too many registration attempts from this address, try again later',
+});
+const loginLimiterByIp = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  keyGenerator: (req) => req.ip,
+  message: 'too many login attempts from this address, try again later',
+});
+const loginLimiterByEmail = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 8,
+  keyGenerator: (req) => (req.body?.email || '').toLowerCase(),
+  message: 'too many login attempts for this account, try again later',
+});
+
 // Bootstraps a brand-new org + its first admin. There's no invite flow yet
 // (that's a follow-on piece of Section 7) — this is how org #1 gets created.
 // No session is issued until the email is verified (POST /auth/verify-email)
 // — proves the registrant actually controls this address.
-router.post('/register', async (req, res) => {
+router.post('/register', registerLimiter, async (req, res) => {
   const { org_name, email, password } = req.body || {};
   if (!org_name || !email || !password) {
     return res.status(400).json({ error: 'org_name, email, and password are required' });
@@ -42,7 +67,7 @@ router.post('/register', async (req, res) => {
   res.status(201).json({ pending: true, message: 'Check your email to verify your account before logging in.' });
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiterByIp, loginLimiterByEmail, async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'email and password are required' });
 

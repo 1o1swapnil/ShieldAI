@@ -4,6 +4,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Rate limiting on `/auth/login` and `/auth/register` (`src/rateLimit.js`)
+  — a small in-memory fixed-window limiter, no new dependency. Login is
+  gated by two independent limiters: per-IP (30/15min, catches a script
+  hammering many accounts from one source) and per-email (8/15min, catches
+  distributed credential stuffing against one account). Register is
+  gated per-IP (5/hour). Both return `429` with a `Retry-After` header.
+  `req.ip` reflects the load balancer's address unless `trust proxy` is
+  configured for the real deployment — documented in the README.
+
 ## [0.5.0] - 2026-07-27
 
 ### Added
