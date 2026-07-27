@@ -4,6 +4,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-27
+
 ### Added
 - Revocation for user-session JWTs, mirroring the device-token model
   (migration 0011): a `sessions` row per login/verify-email/SSO callback,
