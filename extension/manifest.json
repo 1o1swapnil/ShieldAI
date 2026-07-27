@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ShieldAI",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "ShieldAI browser extension",
   "background": {
     "service_worker": "background.js"

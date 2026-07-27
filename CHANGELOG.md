@@ -4,6 +4,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-07-27
+
 ### Added
 - Rate limiting on `/auth/login` and `/auth/register` (`src/rateLimit.js`)
   — a small in-memory fixed-window limiter, no new dependency. Login is
