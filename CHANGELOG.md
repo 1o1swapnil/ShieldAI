@@ -4,23 +4,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-07-27
+
 ### Added
-- Pull request template.
-- CONTRIBUTING.md documenting the branch/PR process.
-- CODEOWNERS (`* @1o1swapnil`) and branch protection on `master`: required
-  status checks (`server-test`, `web-build`, `extension-lint`), 1 code-owner
-  review, no direct pushes for non-admins.
-- GitHub Actions CI: server test suite, web production build, extension
-  JSON validation.
-- README with setup instructions and an API route summary.
-- Proprietary LICENSE.
-
-## [0.1.0] - Initial implementation
-
-Scaffolded the ShieldAI platform (Node/Express + Postgres server, Vite/React
-admin/employee web app, Manifest V3 browser extension) implementing the four
-gaps from the v1.1 design addendum:
-
+- Scaffolded the ShieldAI platform: Node/Express + Postgres server, Vite/React
+  admin/employee web app, Manifest V3 browser extension.
 - **Section 4 — Employee notice & consent**: `consent_log` table, monitoring
   notice screen in the extension install flow, jurisdiction configuration
   gating incognito monitoring and the native-app companion.
@@ -35,3 +23,12 @@ gaps from the v1.1 design addendum:
 - **Section 1 — Detection coverage**: honest coverage-map reframing,
   native-app egress detection reusing the `ai_tools` domain table, SSO
   OAuth-grant discovery (`discovered_integrations`) with fuzzy tool matching.
+- README with setup instructions and an API route summary.
+- Proprietary LICENSE.
+- GitHub Actions CI: server test suite, web production build, extension
+  JSON validation.
+- CODEOWNERS (`* @1o1swapnil`) and branch protection on `master`: required
+  status checks (`server-test`, `web-build`, `extension-lint`), 1 code-owner
+  review, no direct pushes for non-admins.
+- CONTRIBUTING.md documenting the branch/PR process.
+- Pull request template.
