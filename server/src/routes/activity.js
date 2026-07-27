@@ -3,22 +3,20 @@ const pool = require('../db');
 const { classifyDomain } = require('../classifier/classifyDomain');
 const { upsertUnverifiedTool } = require('../classifier/queue');
 const { requireAuth, requireAdmin, requireOrgMatch } = require('../auth/middleware');
+const { requireDeviceAuth } = require('../auth/deviceMiddleware');
 
 const router = express.Router();
 
 // The real ingestion path: the extension reports every AI-tool-relevant
 // page visit here. Known domains log at full confidence; unknown domains
 // run the Section 2 classifier using aggregate signals computed from this
-// org's own event history — not a client-supplied number.
-// Device-facing (called by the extension, not a logged-in browser session)
-// — no JWT gate yet. Closing this gap needs the per-install device-token
-// model the install-token flow (Section 7) hasn't been built for.
-router.post('/events', async (req, res) => {
-  const { org_id, user_id, domain, title, script_hints, session_id, duration_seconds } = req.body || {};
-  if (!org_id || !user_id || !domain) {
-    return res.status(400).json({ error: 'org_id, user_id, and domain are required' });
-  }
+// org's own event history — not a client-supplied number. org_id/user_id
+// come from the device token, not the request body.
+router.post('/events', requireDeviceAuth, async (req, res) => {
+  const { domain, title, script_hints, session_id, duration_seconds } = req.body || {};
+  if (!domain) return res.status(400).json({ error: 'domain is required' });
 
+  const { orgId, userId } = req.device;
   const { rows: toolRows } = await pool.query('SELECT id FROM ai_tools WHERE domain = $1', [domain]);
   const knownToolId = toolRows[0]?.id || null;
 
@@ -29,7 +27,7 @@ router.post('/events', async (req, res) => {
     const { rows: aggRows } = await pool.query(
       `SELECT COUNT(DISTINCT user_id)::int AS distinct_users, AVG(duration_seconds)::int AS avg_session_seconds
        FROM activity_events WHERE org_id = $1 AND domain = $2`,
-      [org_id, domain]
+      [orgId, domain]
     );
 
     const classified = await classifyDomain({
@@ -43,7 +41,7 @@ router.post('/events', async (req, res) => {
 
     if (classified.defaultAction) {
       queued = await upsertUnverifiedTool(pool, {
-        orgId: org_id,
+        orgId,
         domain,
         confidence: classified.confidence,
         featureSnapshot: classified.featureSnapshot,
@@ -54,7 +52,7 @@ router.post('/events', async (req, res) => {
   await pool.query(
     `INSERT INTO activity_events (org_id, user_id, domain, ai_tool_id, title, confidence, session_id, duration_seconds)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-    [org_id, user_id, domain, knownToolId, title || null, confidence, session_id || null, duration_seconds || null]
+    [orgId, userId, domain, knownToolId, title || null, confidence, session_id || null, duration_seconds || null]
   );
 
   res.status(201).json({ logged: true, ai_tool_id: knownToolId, confidence, queued: Boolean(queued) });

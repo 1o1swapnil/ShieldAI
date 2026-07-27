@@ -7,12 +7,18 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type === 'consent-acknowledged') {
+  if (message.type === 'device-registered') {
     chrome.storage.local.set(
-      { consentAcknowledged: true, noticeVersion: message.noticeVersion, orgId: message.orgId, userId: message.userId },
+      { deviceToken: message.deviceToken, orgId: message.orgId, userId: message.userId },
       () => sendResponse({ ok: true })
     );
     return true; // keep the message channel open for the async sendResponse
+  }
+  if (message.type === 'consent-acknowledged') {
+    chrome.storage.local.set({ consentAcknowledged: true, noticeVersion: message.noticeVersion }, () =>
+      sendResponse({ ok: true })
+    );
+    return true;
   }
   if (message.type === 'host-permission-decision') {
     chrome.storage.local.set({ optionalHostPermissionGranted: message.granted }, () => {
@@ -44,16 +50,16 @@ function registerUnknownDomainScan() {
 
 // Section 8: forward the content script's single DOM read to the real
 // activity-ingestion endpoint. One tab = one session for duration purposes.
+// Authenticated with this install's device token (Section 7 gap fix) —
+// org_id/user_id are derived server-side from it, never sent by the client.
 async function reportPageVisit(message, tabId) {
-  const { orgId, userId } = await chrome.storage.local.get(['orgId', 'userId']);
-  if (!orgId || !userId) return;
+  const { deviceToken } = await chrome.storage.local.get(['deviceToken']);
+  if (!deviceToken) return;
 
   await fetch(`${API_BASE}/activity/events`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deviceToken}` },
     body: JSON.stringify({
-      org_id: orgId,
-      user_id: userId,
       domain: message.domain,
       title: message.title,
       script_hints: message.scriptHints,
@@ -69,21 +75,18 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 // 3.3: self-report this install's build so the org's security team can
 // verify (via GET /org/:orgId/extension-versions) it matches a reviewed build.
 async function reportConfig() {
-  const { orgId, userId, optionalHostPermissionGranted } = await chrome.storage.local.get([
-    'orgId',
-    'userId',
+  const { deviceToken, optionalHostPermissionGranted } = await chrome.storage.local.get([
+    'deviceToken',
     'optionalHostPermissionGranted',
   ]);
-  if (!orgId || !userId) return;
+  if (!deviceToken) return;
 
   const { version, build_hash } = await fetch(chrome.runtime.getURL('build-info.json')).then((r) => r.json());
 
   const res = await fetch(`${API_BASE}/extension/config`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deviceToken}` },
     body: JSON.stringify({
-      org_id: orgId,
-      user_id: userId,
       version,
       build_hash,
       optional_host_permission_granted: Boolean(optionalHostPermissionGranted),

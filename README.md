@@ -13,6 +13,7 @@ Also includes v1.0 base pieces the addendum assumed already existed:
 - the activity-events ingestion pipeline (Section 8) that the extension's content script feeds and the classifier's aggregate-usage signal now reads from
 - the real AI tool library (Section 12): 150+ seeded tools across 15 categories, replacing the `ai_tools` stub
 - real authentication + SSO (Sections 6-7): password login, JWT sessions, a generic OIDC connector (Okta/Azure AD/any compliant IdP), and org/role authorization on every admin-dashboard route — replacing the "trust whatever org_id the client sends" model every earlier endpoint used
+- device-token auth (Section 7) for the extension's own ingestion calls: an admin-issued install token exchanges once for a long-lived, individually revocable device token, closing the last "trust whatever org_id/user_id the client sends" gap
 
 ## Structure
 
@@ -47,6 +48,7 @@ psql -d shieldai -f migrations/0005_coverage.sql
 psql -d shieldai -f migrations/0006_activity_events.sql
 psql -d shieldai -f migrations/0007_ai_tools_library.sql
 psql -d shieldai -f migrations/0008_auth.sql
+psql -d shieldai -f migrations/0009_device_auth.sql
 ```
 
 Seed the AI tool library (idempotent — safe to re-run after the seed list grows):
@@ -83,6 +85,12 @@ Register an org (or log in) on first load; the org id comes from your session �
 
 Load `extension/` as an unpacked extension (`chrome://extensions` → Developer mode → Load unpacked).
 
+An admin creates an install token from the Devices tab (or `POST /org/:orgId/install-tokens`), and shares a link like
+`chrome-extension://<extension-id>/notice.html?install_token=<token>` with employees. Opening it exchanges the
+token for a long-lived device token (`POST /extension/register-device`) that the extension then uses for every
+device-facing call. Revoke a device from the same tab to cut it off immediately, independent of the token's own
+expiry.
+
 Before packaging a release, regenerate the build hash the service worker self-reports:
 
 ```
@@ -97,6 +105,8 @@ node extension/build-hash.js
 |---|---|
 | `POST /auth/register`, `POST /auth/login`, `GET /auth/me` | password auth + JWT sessions (Section 7) |
 | `GET /auth/sso/login`, `GET /auth/sso/callback` | generic OIDC SSO login — Okta/Azure AD/any compliant IdP (Section 6) |
+| `POST/GET /org/:orgId/install-tokens`, `.../install-tokens/:id/revoke`, `GET /org/:orgId/devices`, `.../devices/:id/revoke` | admin-issued device credentials (Section 7) |
+| `POST /extension/register-device` | exchanges an install token for a long-lived device token |
 | `GET/POST /consent/*` | monitoring notice, acknowledgement, status (Section 4) |
 | `GET/PATCH /org/:orgId/settings` | jurisdictions, gated feature toggles, DNS/proxy flag |
 | `GET /org/security-summary` | retention/encryption/sub-processor summary (Section 3) |
@@ -109,4 +119,4 @@ node extension/build-hash.js
 | `POST /activity/events`, `GET /activity/events`, `GET /activity/summary` | real activity ingestion + per-tool usage rollup (Section 8) |
 | `GET /tools/library`, `POST /tools/library` | AI tool library listing (filterable by category/source) + manual add (Section 12 / 1.2) |
 
-All admin-dashboard routes above require `Authorization: Bearer <jwt>` and 403 on an org mismatch; `/tools/library` requires an admin from any org (the library is shared, not per-org). `POST /consent/acknowledge`, `POST /extension/config`, `POST /native-app/detect`, and `POST /activity/events` stay unauthenticated — they're called by the extension/device, not a logged-in browser session, and closing that gap needs a per-install device-token model the install-token flow hasn't been built for yet. `GET /org/security-summary` is intentionally public (Section 3.2 — security reviewers pull it before they're even a customer).
+All admin-dashboard routes above require `Authorization: Bearer <jwt>` (a user session) and 403 on an org mismatch; `/tools/library` requires an admin from any org (the library is shared, not per-org). `POST /consent/acknowledge`, `GET /consent/status`, `POST /extension/config`, `POST /native-app/detect`, and `POST /activity/events` require `Authorization: Bearer <device token>` instead — org_id/user_id come from the token, never the request body, and a device-token-typed JWT is rejected by the user-session middleware and vice versa. `POST /extension/register-device` (the install-token exchange) and `GET /consent/notice` are the only genuinely public device-facing routes. `GET /org/security-summary` is intentionally public too (Section 3.2 — security reviewers pull it before they're even a customer).

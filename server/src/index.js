@@ -10,6 +10,7 @@ const coverageRouter = require('./routes/coverage');
 const nativeAppRouter = require('./routes/nativeApp');
 const integrationsRouter = require('./routes/integrations');
 const activityRouter = require('./routes/activity');
+const devicesRouter = require('./routes/devices');
 
 const app = express();
 app.use(express.json());
@@ -19,6 +20,7 @@ app.use('/consent', consentRouter);
 app.use('/org', settingsRouter);
 app.use('/org', securityRouter);
 app.use('/org', coverageRouter);
+app.use('/org', devicesRouter);
 app.use('/extension', extensionRouter);
 app.use('/tools', toolsRouter);
 app.use('/native-app', nativeAppRouter);

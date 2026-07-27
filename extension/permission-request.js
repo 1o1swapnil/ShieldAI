@@ -7,8 +7,8 @@ const statusEl = document.getElementById('status');
 async function finish(granted) {
   await chrome.runtime.sendMessage({ type: 'host-permission-decision', granted });
   statusEl.textContent = granted
-    ? 'Broad access granted. Continue to install token entry.'
-    : 'Skipped. You still get full known-tool-list detection. Continue to install token entry.';
+    ? 'Broad access granted. Setup complete.'
+    : 'Skipped. You still get full known-tool-list detection. Setup complete.';
   grantButton.disabled = true;
   skipButton.disabled = true;
 }

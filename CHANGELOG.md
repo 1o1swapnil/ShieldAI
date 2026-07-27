@@ -4,6 +4,34 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Device-token auth (Section 7) for the extension's own ingestion
+  endpoints. `install_tokens` (admin-issued, revocable) and `devices`
+  (individually revocable) tables; `POST /extension/register-device`
+  exchanges an install token for a long-lived (400d) device JWT;
+  `requireDeviceAuth` middleware verifies the token AND checks live
+  revocation status against the DB on every request — the JWT's own
+  expiry is a backstop, not the real kill switch.
+- `POST /consent/acknowledge`, `GET /consent/status`, `POST
+  /extension/config`, `POST /native-app/detect`, and `POST
+  /activity/events` now require a device token; org_id/user_id come from
+  it instead of the request body. Closes the last "trust whatever
+  org_id/user_id the client sends" gap (the admin-dashboard routes were
+  closed in the prior auth/SSO release).
+- Admin UI/API to create, list, and revoke install tokens and registered
+  devices per org (`/org/:orgId/install-tokens`, `/org/:orgId/devices`,
+  a Devices admin page).
+- Extension: the Monitoring Notice screen now collects an install token
+  (from the install link) + work email, exchanges them for a device
+  token, and uses it for every subsequent call — replacing the placeholder
+  org_id/user_id URL params.
+
+### Verified
+- Live: a revoked device's still-valid, unexpired JWT is rejected
+  (`device revoked or not found`); a revoked install token blocks new
+  registrations without affecting already-registered devices; a
+  user-session JWT is rejected by device-auth middleware and vice versa.
+
 ## [0.3.0] - 2026-07-27
 
 ### Added

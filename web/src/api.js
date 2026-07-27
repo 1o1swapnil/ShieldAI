@@ -59,3 +59,15 @@ export const getActivitySummary = (orgId) => authFetch(`/activity/summary?org_id
 export const getToolLibrary = () => authFetch('/tools/library');
 
 export const addLibraryTool = (tool) => authFetch('/tools/library', { method: 'POST', body: JSON.stringify(tool) });
+
+export const getInstallTokens = (orgId) => authFetch(`/org/${orgId}/install-tokens`);
+
+export const createInstallToken = (orgId, label) =>
+  authFetch(`/org/${orgId}/install-tokens`, { method: 'POST', body: JSON.stringify({ label }) });
+
+export const revokeInstallToken = (orgId, id) =>
+  authFetch(`/org/${orgId}/install-tokens/${id}/revoke`, { method: 'POST' });
+
+export const getDevices = (orgId) => authFetch(`/org/${orgId}/devices`);
+
+export const revokeDevice = (orgId, id) => authFetch(`/org/${orgId}/devices/${id}/revoke`, { method: 'POST' });
