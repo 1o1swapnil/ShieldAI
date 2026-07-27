@@ -3,6 +3,7 @@ const pool = require('../db');
 const { defaultActionFor, explain } = require('../classifier/score');
 const { classifyDomain } = require('../classifier/classifyDomain');
 const { upsertUnverifiedTool } = require('../classifier/queue');
+const { requireAuth, requireAdmin, requireOrgMatch } = require('../auth/middleware');
 
 const router = express.Router();
 
@@ -12,7 +13,7 @@ const router = express.Router();
 // real ingestion path is POST /activity/events (Section 8), which computes
 // aggregate org-behavior signals from stored events instead of trusting
 // client-supplied numbers.
-router.post('/classify', async (req, res) => {
+router.post('/classify', requireAuth, requireAdmin, requireOrgMatch((req) => req.body?.org_id), async (req, res) => {
   const { org_id, domain, title, script_hints, distinct_users, avg_session_seconds } = req.body || {};
   if (!org_id || !domain) {
     return res.status(400).json({ error: 'org_id and domain are required' });
@@ -37,7 +38,7 @@ router.post('/classify', async (req, res) => {
 });
 
 // Paginated queue, sorted by ml_confidence DESC (2.5).
-router.get('/unverified', async (req, res) => {
+router.get('/unverified', requireAuth, requireAdmin, requireOrgMatch((req) => req.query.org_id), async (req, res) => {
   const { org_id, limit = 50, offset = 0 } = req.query;
   if (!org_id) return res.status(400).json({ error: 'org_id is required' });
 
@@ -61,11 +62,19 @@ router.get('/unverified', async (req, res) => {
 
 // confirmed_ai creates a real ai_tools row + (implicitly, via review_status)
 // becomes a labeled training example for the next retraining pass (2.4).
-router.patch('/unverified/:id', async (req, res) => {
+// org_id isn't in the URL here, so the org-match check happens inline
+// against the row itself rather than via requireOrgMatch.
+router.patch('/unverified/:id', requireAuth, requireAdmin, async (req, res) => {
   const { review_status, reviewed_by } = req.body || {};
   if (!['confirmed_ai', 'dismissed'].includes(review_status)) {
     return res.status(400).json({ error: "review_status must be 'confirmed_ai' or 'dismissed'" });
   }
+
+  const { rows: existing } = await pool.query('SELECT org_id FROM unverified_tools_queue WHERE id = $1', [
+    req.params.id,
+  ]);
+  if (!existing.length) return res.status(404).json({ error: 'not found' });
+  if (existing[0].org_id !== req.user.orgId) return res.status(403).json({ error: 'org mismatch' });
 
   const { rows } = await pool.query(
     `UPDATE unverified_tools_queue
@@ -74,7 +83,6 @@ router.patch('/unverified/:id', async (req, res) => {
      RETURNING domain`,
     [review_status, reviewed_by || null, req.params.id]
   );
-  if (!rows.length) return res.status(404).json({ error: 'not found' });
 
   let aiToolId = null;
   if (review_status === 'confirmed_ai') {
@@ -92,7 +100,7 @@ router.patch('/unverified/:id', async (req, res) => {
 
 // 1.2: "Admin adds internal tool entries to ai_tools" — the manual path for
 // self-hosted/internal LLM endpoints domain-matching can't discover on its own.
-router.post('/library', async (req, res) => {
+router.post('/library', requireAuth, requireAdmin, async (req, res) => {
   const { name, domain, category } = req.body || {};
   if (!name || !domain) return res.status(400).json({ error: 'name and domain are required' });
 
@@ -106,7 +114,7 @@ router.post('/library', async (req, res) => {
   res.status(201).json(rows[0]);
 });
 
-router.get('/library', async (req, res) => {
+router.get('/library', requireAuth, requireAdmin, async (req, res) => {
   const { category, source } = req.query;
   const conditions = [];
   const params = [];

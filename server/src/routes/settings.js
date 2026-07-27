@@ -2,11 +2,12 @@ const express = require('express');
 const pool = require('../db');
 const { checklistFor, noticeConfigured } = require('../notice');
 const { isVerifiedBuild } = require('../buildVerify');
+const { requireAuth, requireAdmin, requireOrgMatch } = require('../auth/middleware');
 
 const router = express.Router();
 
 // 3.3: security teams pull this instead of trusting each employee's report.
-router.get('/:orgId/extension-versions', async (req, res) => {
+router.get('/:orgId/extension-versions', requireAuth, requireAdmin, requireOrgMatch(), async (req, res) => {
   const { rows } = await pool.query(
     `SELECT ei.user_id, ei.extension_version, ei.build_hash, ei.optional_host_permission_granted, ei.last_seen_at,
             eb.build_hash AS reviewed_build_hash
@@ -27,7 +28,7 @@ router.get('/:orgId/extension-versions', async (req, res) => {
   );
 });
 
-router.get('/:orgId/settings', async (req, res) => {
+router.get('/:orgId/settings', requireAuth, requireOrgMatch(), async (req, res) => {
   const { rows } = await pool.query(
     `SELECT jurisdictions, incognito_monitoring_enabled, native_app_companion_enabled, checklist_overrides, dns_proxy_configured
      FROM organizations WHERE id = $1`,
@@ -48,7 +49,7 @@ router.get('/:orgId/settings', async (req, res) => {
 // 4.2: admins pick jurisdictions and toggle the gated features. Enabling
 // incognito monitoring or the native-app companion is rejected until
 // jurisdictions is non-empty.
-router.patch('/:orgId/settings', async (req, res) => {
+router.patch('/:orgId/settings', requireAuth, requireAdmin, requireOrgMatch(), async (req, res) => {
   const { rows } = await pool.query(
     `SELECT jurisdictions, incognito_monitoring_enabled, native_app_companion_enabled, checklist_overrides, dns_proxy_configured
      FROM organizations WHERE id = $1`,

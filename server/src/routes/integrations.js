@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../db');
 const { fuzzyMatchAiTool } = require('../fuzzyMatch');
+const { requireAuth, requireAdmin, requireOrgMatch } = require('../auth/middleware');
 
 const router = express.Router();
 
@@ -8,7 +9,7 @@ const router = express.Router();
 // (the SSO connector itself is Section 6, not built) and match them against
 // the ai_tools library. This is the "Sarah authorized 'OpenAI API access'
 // via Okta" flow — no network visibility required.
-router.post('/scan', async (req, res) => {
+router.post('/scan', requireAuth, requireAdmin, requireOrgMatch((req) => req.body?.org_id), async (req, res) => {
   const { org_id, grants } = req.body || {};
   if (!org_id || !Array.isArray(grants)) {
     return res.status(400).json({ error: 'org_id and grants[] are required' });
@@ -31,7 +32,7 @@ router.post('/scan', async (req, res) => {
   res.status(201).json(inserted);
 });
 
-router.get('/discovered', async (req, res) => {
+router.get('/discovered', requireAuth, requireAdmin, requireOrgMatch((req) => req.query.org_id), async (req, res) => {
   const { org_id } = req.query;
   if (!org_id) return res.status(400).json({ error: 'org_id is required' });
 
@@ -45,17 +46,22 @@ router.get('/discovered', async (req, res) => {
   res.json(rows);
 });
 
-router.patch('/discovered/:id', async (req, res) => {
+router.patch('/discovered/:id', requireAuth, requireAdmin, async (req, res) => {
   const { status } = req.body || {};
   if (!['confirmed', 'dismissed'].includes(status)) {
     return res.status(400).json({ error: "status must be 'confirmed' or 'dismissed'" });
   }
 
+  const { rows: existing } = await pool.query('SELECT org_id FROM discovered_integrations WHERE id = $1', [
+    req.params.id,
+  ]);
+  if (!existing.length) return res.status(404).json({ error: 'not found' });
+  if (existing[0].org_id !== req.user.orgId) return res.status(403).json({ error: 'org mismatch' });
+
   const { rows } = await pool.query(
     `UPDATE discovered_integrations SET status = $1 WHERE id = $2 RETURNING id, status`,
     [status, req.params.id]
   );
-  if (!rows.length) return res.status(404).json({ error: 'not found' });
   res.json(rows[0]);
 });
 

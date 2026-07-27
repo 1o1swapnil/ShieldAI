@@ -1,4 +1,6 @@
 const express = require('express');
+const authRouter = require('./routes/auth');
+const ssoRouter = require('./routes/sso');
 const consentRouter = require('./routes/consent');
 const settingsRouter = require('./routes/settings');
 const securityRouter = require('./routes/security');
@@ -11,6 +13,8 @@ const activityRouter = require('./routes/activity');
 
 const app = express();
 app.use(express.json());
+app.use('/auth', authRouter);
+app.use('/auth/sso', ssoRouter);
 app.use('/consent', consentRouter);
 app.use('/org', settingsRouter);
 app.use('/org', securityRouter);

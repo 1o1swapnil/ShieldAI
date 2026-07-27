@@ -1,0 +1,66 @@
+import { useState } from 'react';
+import { login, register } from '../api.js';
+import { setToken } from '../auth.js';
+
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000';
+
+export default function Login({ onAuthenticated }) {
+  const [mode, setMode] = useState('login'); // 'login' | 'register'
+  const [form, setForm] = useState({ org_name: '', email: '', password: '' });
+  const [error, setError] = useState(null);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError(null);
+    try {
+      const result =
+        mode === 'login' ? await login(form.email, form.password) : await register(form.org_name, form.email, form.password);
+      setToken(result.token);
+      onAuthenticated();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  return (
+    <div style={{ maxWidth: 360, margin: '80px auto', fontFamily: 'system-ui, sans-serif' }}>
+      <h1>ShieldAI</h1>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <button onClick={() => setMode('login')} disabled={mode === 'login'}>Log in</button>
+        <button onClick={() => setMode('register')} disabled={mode === 'register'}>Register org</button>
+      </div>
+
+      <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {mode === 'register' && (
+          <input
+            placeholder="Organization name"
+            value={form.org_name}
+            onChange={(e) => setForm({ ...form, org_name: e.target.value })}
+          />
+        )}
+        <input
+          type="email"
+          placeholder="Email"
+          value={form.email}
+          onChange={(e) => setForm({ ...form, email: e.target.value })}
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          value={form.password}
+          onChange={(e) => setForm({ ...form, password: e.target.value })}
+        />
+        <button type="submit">{mode === 'login' ? 'Log in' : 'Create org + admin account'}</button>
+      </form>
+
+      {error && <p style={{ color: '#a33' }}>{error}</p>}
+
+      <p style={{ marginTop: 16 }}>
+        <small>
+          Or <a href={`${API_BASE}/auth/sso/login?org_id=`}>sign in with SSO</a> (append your org id — requires
+          OIDC_ISSUER_URL etc. configured server-side).
+        </small>
+      </p>
+    </div>
+  );
+}

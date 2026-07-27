@@ -1,10 +1,11 @@
 const express = require('express');
 const pool = require('../db');
 const { COVERAGE_INTRO_TEXT, buildCoverageMap } = require('../coverageMap');
+const { requireAuth, requireAdmin, requireOrgMatch } = require('../auth/middleware');
 
 const router = express.Router();
 
-router.get('/:orgId/coverage-map', async (req, res) => {
+router.get('/:orgId/coverage-map', requireAuth, requireAdmin, requireOrgMatch(), async (req, res) => {
   const orgId = req.params.orgId;
 
   const [orgRes, extRes, discRes] = await Promise.all([

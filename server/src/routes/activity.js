@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../db');
 const { classifyDomain } = require('../classifier/classifyDomain');
 const { upsertUnverifiedTool } = require('../classifier/queue');
+const { requireAuth, requireAdmin, requireOrgMatch } = require('../auth/middleware');
 
 const router = express.Router();
 
@@ -9,6 +10,9 @@ const router = express.Router();
 // page visit here. Known domains log at full confidence; unknown domains
 // run the Section 2 classifier using aggregate signals computed from this
 // org's own event history — not a client-supplied number.
+// Device-facing (called by the extension, not a logged-in browser session)
+// — no JWT gate yet. Closing this gap needs the per-install device-token
+// model the install-token flow (Section 7) hasn't been built for.
 router.post('/events', async (req, res) => {
   const { org_id, user_id, domain, title, script_hints, session_id, duration_seconds } = req.body || {};
   if (!org_id || !user_id || !domain) {
@@ -56,7 +60,7 @@ router.post('/events', async (req, res) => {
   res.status(201).json({ logged: true, ai_tool_id: knownToolId, confidence, queued: Boolean(queued) });
 });
 
-router.get('/events', async (req, res) => {
+router.get('/events', requireAuth, requireAdmin, requireOrgMatch((req) => req.query.org_id), async (req, res) => {
   const { org_id, limit = 50, offset = 0 } = req.query;
   if (!org_id) return res.status(400).json({ error: 'org_id is required' });
 
@@ -72,7 +76,7 @@ router.get('/events', async (req, res) => {
 });
 
 // Per-tool usage rollup for the admin dashboard.
-router.get('/summary', async (req, res) => {
+router.get('/summary', requireAuth, requireAdmin, requireOrgMatch((req) => req.query.org_id), async (req, res) => {
   const { org_id } = req.query;
   if (!org_id) return res.status(400).json({ error: 'org_id is required' });
 

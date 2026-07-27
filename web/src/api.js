@@ -1,3 +1,5 @@
+import { getToken } from './auth.js';
+
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000';
 
 async function json(res) {
@@ -5,42 +7,55 @@ async function json(res) {
   return res.json();
 }
 
-export const getNotice = () => fetch(`${API_BASE}/consent/notice`).then(json);
-
-export const getSettings = (orgId) =>
-  fetch(`${API_BASE}/org/${orgId}/settings`).then(json);
-
-export const updateSettings = (orgId, patch) =>
-  fetch(`${API_BASE}/org/${orgId}/settings`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(patch),
+function authFetch(path, options = {}) {
+  const token = getToken();
+  return fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
   }).then(json);
+}
 
-export const getSecuritySummary = () => fetch(`${API_BASE}/org/security-summary`).then(json);
-
-export const getExtensionVersions = (orgId) =>
-  fetch(`${API_BASE}/org/${orgId}/extension-versions`).then(json);
-
-export const getCoverageMap = (orgId) => fetch(`${API_BASE}/org/${orgId}/coverage-map`).then(json);
-
-export const getDiscoveredIntegrations = (orgId) =>
-  fetch(`${API_BASE}/integrations/discovered?org_id=${orgId}`).then(json);
-
-export const reviewDiscoveredIntegration = (id, status) =>
-  fetch(`${API_BASE}/integrations/discovered/${id}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status }),
-  }).then(json);
-
-export const getActivitySummary = (orgId) => fetch(`${API_BASE}/activity/summary?org_id=${orgId}`).then(json);
-
-export const getToolLibrary = () => fetch(`${API_BASE}/tools/library`).then(json);
-
-export const addLibraryTool = (tool) =>
-  fetch(`${API_BASE}/tools/library`, {
+export const register = (org_name, email, password) =>
+  fetch(`${API_BASE}/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(tool),
+    body: JSON.stringify({ org_name, email, password }),
   }).then(json);
+
+export const login = (email, password) =>
+  fetch(`${API_BASE}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  }).then(json);
+
+export const getMe = () => authFetch('/auth/me');
+
+// Public — no auth required (Section 4.1/3.2 are meant to be readable
+// without a logged-in session).
+export const getNotice = () => fetch(`${API_BASE}/consent/notice`).then(json);
+export const getSecuritySummary = () => fetch(`${API_BASE}/org/security-summary`).then(json);
+
+export const getSettings = (orgId) => authFetch(`/org/${orgId}/settings`);
+
+export const updateSettings = (orgId, patch) =>
+  authFetch(`/org/${orgId}/settings`, { method: 'PATCH', body: JSON.stringify(patch) });
+
+export const getExtensionVersions = (orgId) => authFetch(`/org/${orgId}/extension-versions`);
+
+export const getCoverageMap = (orgId) => authFetch(`/org/${orgId}/coverage-map`);
+
+export const getDiscoveredIntegrations = (orgId) => authFetch(`/integrations/discovered?org_id=${orgId}`);
+
+export const reviewDiscoveredIntegration = (id, status) =>
+  authFetch(`/integrations/discovered/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
+
+export const getActivitySummary = (orgId) => authFetch(`/activity/summary?org_id=${orgId}`);
+
+export const getToolLibrary = () => authFetch('/tools/library');
+
+export const addLibraryTool = (tool) => authFetch('/tools/library', { method: 'POST', body: JSON.stringify(tool) });

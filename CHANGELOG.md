@@ -15,6 +15,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Tool Library admin page.
 - Classifier-confirmed and admin-added tools are now tagged with the
   correct `source` instead of all rows looking the same.
+- Authentication + SSO (v1.0 base, Sections 6-7): `users` gains
+  `password_hash`, `role` (`admin`|`employee`), `auth_provider`, and
+  `sso_issuer`/`sso_subject`. `POST /auth/register`, `POST /auth/login`,
+  `GET /auth/me` (password auth, scrypt hashing, JWT sessions). A generic
+  OIDC relying-party flow (`GET /auth/sso/login` / `/callback`) —
+  authorization code + PKCE, remote-JWKS id_token verification via `jose`
+  — works against Okta, Azure AD, or any standards-compliant IdP via env
+  vars, no vendor SDK.
+- `requireAuth`/`requireAdmin`/`requireOrgMatch` middleware retrofitted
+  onto every admin-dashboard route (settings, coverage map, unverified
+  queue, tool library, discovered integrations, activity log/summary,
+  extension versions): a request now 401s with no token and 403s if the
+  token's org doesn't match the org being acted on, instead of trusting
+  whatever `org_id` the client sent. Device-facing ingestion routes
+  (`/consent/acknowledge`, `/extension/config`, `/native-app/detect`,
+  `/activity/events`) are deliberately left unauthenticated for now — that
+  needs a per-install device-token model, not a browser-session JWT.
+- Web app: Login/Register page, JWT stored client-side and attached to
+  every admin API call, org id now comes from the authenticated session
+  instead of a manually-pasted org id.
 
 ## [0.2.0] - 2026-07-27
 
