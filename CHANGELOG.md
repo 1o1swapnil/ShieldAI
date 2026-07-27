@@ -4,6 +4,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-27
+
 ### Added
 - Device-token auth (Section 7) for the extension's own ingestion
   endpoints. `install_tokens` (admin-issued, revocable) and `devices`
