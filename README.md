@@ -9,7 +9,9 @@ Shadow AI governance platform. Implements the v1.1 design addendum:
 - **Section 3** — extension permission narrowing, trust/security summary, signed build verification
 - **Section 4** — employee monitoring notice/consent, jurisdiction-gated feature toggles
 
-Also includes a v1.0 base piece the addendum assumed already existed: the activity-events ingestion pipeline (Section 8) that the extension's content script feeds and the classifier's aggregate-usage signal now reads from.
+Also includes v1.0 base pieces the addendum assumed already existed:
+- the activity-events ingestion pipeline (Section 8) that the extension's content script feeds and the classifier's aggregate-usage signal now reads from
+- the real AI tool library (Section 12): 150+ seeded tools across 15 categories, replacing the `ai_tools` stub
 
 ## Structure
 
@@ -42,6 +44,13 @@ psql -d shieldai -f migrations/0003_extension_trust.sql
 psql -d shieldai -f migrations/0004_unverified_tools.sql
 psql -d shieldai -f migrations/0005_coverage.sql
 psql -d shieldai -f migrations/0006_activity_events.sql
+psql -d shieldai -f migrations/0007_ai_tools_library.sql
+```
+
+Seed the AI tool library (idempotent — safe to re-run after the seed list grows):
+
+```
+DATABASE_URL=... node seeds/seed-ai-tools.js
 ```
 
 Run tests and start the server:
@@ -92,3 +101,4 @@ node extension/build-hash.js
 | `POST /native-app/detect` | native desktop app egress detection |
 | `POST /integrations/scan`, `GET/PATCH /integrations/discovered` | SSO OAuth-grant discovery |
 | `POST /activity/events`, `GET /activity/events`, `GET /activity/summary` | real activity ingestion + per-tool usage rollup (Section 8) |
+| `GET /tools/library`, `POST /tools/library` | AI tool library listing (filterable by category/source) + manual add (Section 12 / 1.2) |

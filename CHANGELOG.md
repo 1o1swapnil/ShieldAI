@@ -4,6 +4,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- AI tool library (v1.0 base, Section 12): `ai_tools` gains `category`,
+  `source` (`library_seed` | `classifier_confirmed` | `admin_manual`), and
+  `added_at`; a 150+ tool seed list across 15 categories
+  (`server/seeds/ai_tools.json`) with an idempotent seed script;
+  `GET /tools/library` (filterable by category/source) and
+  `POST /tools/library` for manually registering internal/self-hosted
+  tools (closes the Section 1.2 "admin adds internal tool entries" gap); a
+  Tool Library admin page.
+- Classifier-confirmed and admin-added tools are now tagged with the
+  correct `source` instead of all rows looking the same.
+
 ## [0.2.0] - 2026-07-27
 
 ### Added

@@ -35,3 +35,12 @@ export const reviewDiscoveredIntegration = (id, status) =>
   }).then(json);
 
 export const getActivitySummary = (orgId) => fetch(`${API_BASE}/activity/summary?org_id=${orgId}`).then(json);
+
+export const getToolLibrary = () => fetch(`${API_BASE}/tools/library`).then(json);
+
+export const addLibraryTool = (tool) =>
+  fetch(`${API_BASE}/tools/library`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(tool),
+  }).then(json);

@@ -79,7 +79,7 @@ router.patch('/unverified/:id', async (req, res) => {
   let aiToolId = null;
   if (review_status === 'confirmed_ai') {
     const { rows: toolRows } = await pool.query(
-      `INSERT INTO ai_tools (name, domain) VALUES ($1, $2)
+      `INSERT INTO ai_tools (name, domain, source) VALUES ($1, $2, 'classifier_confirmed')
        ON CONFLICT (domain) DO UPDATE SET domain = EXCLUDED.domain
        RETURNING id`,
       [rows[0].domain, rows[0].domain]
@@ -88,6 +88,43 @@ router.patch('/unverified/:id', async (req, res) => {
   }
 
   res.json({ review_status, ai_tool_id: aiToolId });
+});
+
+// 1.2: "Admin adds internal tool entries to ai_tools" — the manual path for
+// self-hosted/internal LLM endpoints domain-matching can't discover on its own.
+router.post('/library', async (req, res) => {
+  const { name, domain, category } = req.body || {};
+  if (!name || !domain) return res.status(400).json({ error: 'name and domain are required' });
+
+  const { rows } = await pool.query(
+    `INSERT INTO ai_tools (name, domain, category, source)
+     VALUES ($1, $2, $3, 'admin_manual')
+     ON CONFLICT (domain) DO UPDATE SET name = EXCLUDED.name, category = EXCLUDED.category
+     RETURNING id, name, domain, category, source, added_at`,
+    [name, domain, category || 'other']
+  );
+  res.status(201).json(rows[0]);
+});
+
+router.get('/library', async (req, res) => {
+  const { category, source } = req.query;
+  const conditions = [];
+  const params = [];
+  if (category) {
+    params.push(category);
+    conditions.push(`category = $${params.length}`);
+  }
+  if (source) {
+    params.push(source);
+    conditions.push(`source = $${params.length}`);
+  }
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  const { rows } = await pool.query(
+    `SELECT id, name, domain, category, source, added_at FROM ai_tools ${where} ORDER BY name`,
+    params
+  );
+  res.json(rows);
 });
 
 module.exports = router;
