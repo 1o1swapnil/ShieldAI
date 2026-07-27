@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "ShieldAI",
+  "version": "0.1.0",
+  "description": "ShieldAI browser extension",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": ["storage", "alarms", "declarativeNetRequestWithHostAccess"],
+  "optional_host_permissions": ["<all_urls>"],
+  "host_permissions": [],
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "known_ai_tools",
+        "enabled": true,
+        "path": "rules.json"
+      }
+    ]
+  }
+}

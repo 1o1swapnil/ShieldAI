@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>ShieldAI — Monitoring Notice</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 520px; margin: 40px auto; padding: 0 16px; }
+    pre { white-space: pre-wrap; background: #f4f4f4; padding: 16px; border-radius: 8px; }
+    label { display: flex; gap: 8px; align-items: flex-start; margin: 16px 0; }
+    button { padding: 10px 20px; font-size: 15px; }
+    a { color: inherit; }
+  </style>
+</head>
+<body>
+  <h1>Before you continue</h1>
+  <pre id="notice-text">Loading notice…</pre>
+  <p><a id="policy-link" href="#" target="_blank">View your organization's DPA / policy</a></p>
+  <label>
+    <input type="checkbox" id="ack-checkbox">
+    I acknowledge I have read this notice.
+  </label>
+  <button id="ack-button" disabled>I Acknowledge</button>
+  <p id="status"></p>
+  <script src="notice.js"></script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>ShieldAI — Permission Request</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 520px; margin: 40px auto; padding: 0 16px; }
+    button { padding: 10px 20px; font-size: 15px; margin-right: 12px; }
+    ul { padding-left: 20px; }
+  </style>
+</head>
+<body>
+  <h1>Optional: broader detection</h1>
+  <p>ShieldAI already detects every tool in our known-AI-tools list without any extra permission.</p>
+  <p>Granting access to all sites additionally lets ShieldAI flag <strong>brand-new or unlisted</strong> AI tools your organization hasn't seen before.</p>
+  <ul>
+    <li><strong>If you grant it:</strong> ShieldAI can inspect page titles and domain metadata on any site to spot unrecognized AI tools.</li>
+    <li><strong>If you decline:</strong> you still get full detection of the known-tool list — you'll only miss brand-new/unlisted tools until your admin adds them manually.</li>
+  </ul>
+  <button id="grant-button">Grant broad access</button>
+  <button id="skip-button">Not now</button>
+  <p id="status"></p>
+  <script src="permission-request.js"></script>
+</body>
+</html>
