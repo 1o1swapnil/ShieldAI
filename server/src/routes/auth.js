@@ -3,6 +3,7 @@ const pool = require('../db');
 const { hashPassword, verifyPassword } = require('../auth/passwords');
 const { signToken, verifyToken } = require('../auth/jwt');
 const { requireAuth } = require('../auth/middleware');
+const { createSession } = require('../auth/sessions');
 const { sendVerificationEmail } = require('../email');
 const { createRateLimiter } = require('../rateLimit');
 
@@ -83,7 +84,8 @@ router.post('/login', loginLimiterByIp, loginLimiterByEmail, async (req, res) =>
     return res.status(403).json({ error: 'email not verified — check your inbox for the verification link' });
   }
 
-  const token = signToken({ sub: user.id, orgId: user.org_id, role: user.role });
+  const sid = await createSession(pool, { userId: user.id, orgId: user.org_id });
+  const token = signToken({ sub: user.id, sid, orgId: user.org_id, role: user.role });
   res.json({ token, user: { id: user.id, org_id: user.org_id, email: user.email, role: user.role } });
 });
 
@@ -112,12 +114,37 @@ router.post('/verify-email', async (req, res) => {
   if (!rows.length) return res.status(404).json({ error: 'account not found' });
 
   const user = rows[0];
-  const token = signToken({ sub: user.id, orgId: user.org_id, role: user.role });
+  const sid = await createSession(pool, { userId: user.id, orgId: user.org_id });
+  const token = signToken({ sub: user.id, sid, orgId: user.org_id, role: user.role });
   res.json({ token, user });
 });
 
 router.get('/me', requireAuth, (req, res) => {
   res.json({ user: req.user });
+});
+
+// Revokes the current session — the server-side half of "log out."
+router.post('/logout', requireAuth, async (req, res) => {
+  await pool.query('UPDATE sessions SET revoked_at = NOW() WHERE id = $1', [req.user.sid]);
+  res.json({ ok: true });
+});
+
+// Self-service session management ("log out other devices").
+router.get('/sessions', requireAuth, async (req, res) => {
+  const { rows } = await pool.query(
+    `SELECT id, created_at, last_seen_at, revoked_at FROM sessions WHERE user_id = $1 ORDER BY last_seen_at DESC`,
+    [req.user.sub]
+  );
+  res.json(rows.map((row) => ({ ...row, current: row.id === req.user.sid })));
+});
+
+router.post('/sessions/:id/revoke', requireAuth, async (req, res) => {
+  const { rows } = await pool.query(
+    `UPDATE sessions SET revoked_at = NOW() WHERE id = $1 AND user_id = $2 RETURNING id, revoked_at`,
+    [req.params.id, req.user.sub]
+  );
+  if (!rows.length) return res.status(404).json({ error: 'not found' });
+  res.json(rows[0]);
 });
 
 module.exports = router;

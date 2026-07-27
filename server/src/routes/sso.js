@@ -2,6 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const pool = require('../db');
 const { signToken } = require('../auth/jwt');
+const { createSession } = require('../auth/sessions');
 const oidc = require('../auth/oidc');
 
 const router = express.Router();
@@ -96,7 +97,8 @@ router.get('/callback', async (req, res) => {
       user = rows[0];
     }
 
-    const token = signToken({ sub: user.id, orgId: user.org_id, role: user.role });
+    const sid = await createSession(pool, { userId: user.id, orgId: user.org_id });
+    const token = signToken({ sub: user.id, sid, orgId: user.org_id, role: user.role });
     const webOrigin = process.env.WEB_ORIGIN || 'http://localhost:5173';
     res.redirect(`${webOrigin}/?token=${encodeURIComponent(token)}`);
   } catch (err) {

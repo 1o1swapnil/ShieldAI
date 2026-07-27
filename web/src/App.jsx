@@ -8,9 +8,10 @@ import DiscoveredIntegrations from './pages/DiscoveredIntegrations.jsx';
 import ActivitySummary from './pages/ActivitySummary.jsx';
 import ToolLibrary from './pages/ToolLibrary.jsx';
 import Devices from './pages/Devices.jsx';
+import Sessions from './pages/Sessions.jsx';
 import Login from './pages/Login.jsx';
 import VerifyDevice from './pages/VerifyDevice.jsx';
-import { getMe, verifyEmail } from './api.js';
+import { getMe, verifyEmail, logout } from './api.js';
 import { getToken, setToken, clearToken } from './auth.js';
 
 export default function App() {
@@ -76,8 +77,12 @@ export default function App() {
         <span><strong>{user.role}</strong> · org {orgId}</span>
         <button
           onClick={() => {
-            clearToken();
-            setUser(null);
+            logout()
+              .catch(() => {}) // revoke best-effort; clear the local token regardless
+              .finally(() => {
+                clearToken();
+                setUser(null);
+              });
           }}
         >
           Log out
@@ -91,6 +96,7 @@ export default function App() {
         <button onClick={() => setTab('unverified')} disabled={tab === 'unverified'}>Unverified Tools</button>
         <button onClick={() => setTab('library')} disabled={tab === 'library'}>Tool Library</button>
         <button onClick={() => setTab('devices')} disabled={tab === 'devices'}>Devices</button>
+        <button onClick={() => setTab('sessions')} disabled={tab === 'sessions'}>Sessions</button>
         <button onClick={() => setTab('integrations')} disabled={tab === 'integrations'}>Discovered Integrations</button>
         <button onClick={() => setTab('employee')} disabled={tab === 'employee'}>What ShieldAI Sees</button>
         <button onClick={() => setTab('trust')} disabled={tab === 'trust'}>Trust & Security</button>
@@ -102,6 +108,9 @@ export default function App() {
       {tab === 'unverified' && <UnverifiedToolsQueue orgId={orgId} />}
       {tab === 'library' && <ToolLibrary />}
       {tab === 'devices' && <Devices orgId={orgId} />}
+      {tab === 'sessions' && (
+        <Sessions orgId={orgId} isAdmin={user.role === 'admin'} currentSessionId={user.sid} />
+      )}
       {tab === 'integrations' && <DiscoveredIntegrations orgId={orgId} />}
       {tab === 'employee' && <WhatShieldAISees />}
       {tab === 'trust' && <TrustSecurity />}

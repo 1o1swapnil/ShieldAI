@@ -4,6 +4,29 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Revocation for user-session JWTs, mirroring the device-token model
+  (migration 0011): a `sessions` row per login/verify-email/SSO callback,
+  carried in the token as `sid`, checked live against the DB on every
+  `requireAuth` call — the token's 24h expiry is a backstop, the row is
+  the real kill switch. Deploying this forces everyone to re-authenticate
+  (existing tokens have no `sid` to match).
+- `POST /auth/logout` revokes the current session server-side (previously
+  "log out" only deleted the local copy — the token stayed valid).
+- Self-service session management: `GET /auth/sessions`, `POST
+  /auth/sessions/:id/revoke` ("log out other devices"), surfaced in a new
+  web Sessions tab.
+- Admin incident response: `GET /org/:orgId/sessions`, `POST
+  /org/:orgId/sessions/:id/revoke` — an admin can kill any session in
+  their org (e.g. a stolen laptop) without the compromised account's
+  cooperation. Same tab, admin view.
+
+### Verified
+- Live: a revoked session's still-valid, unexpired JWT is rejected
+  immediately, both via self-logout and via an admin revoking a
+  teammate's session from a separate login; cross-org session access is
+  rejected with a 403.
+
 ## [0.6.0] - 2026-07-27
 
 ### Added

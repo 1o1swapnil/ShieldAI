@@ -16,6 +16,7 @@ Also includes v1.0 base pieces the addendum assumed already existed:
 - device-token auth (Section 7) for the extension's own ingestion calls: an admin-issued install token exchanges once for a long-lived, individually revocable device token, closing the last "trust whatever org_id/user_id the client sends" gap
 - CORS, and email verification before an account or a device gets a working credential — closes the "type any email, get attributed to it" identity gap
 - Rate limiting on `/auth/login` (per-IP and per-email) and `/auth/register` (per-IP) — closes the open brute-force/credential-stuffing gap
+- Revocation for user-session JWTs, mirroring the device-token model: a `sessions` row per login, checked live on every request, so a leaked/compromised session can be killed immediately instead of surviving its full 24h expiry
 
 ## Structure
 
@@ -52,6 +53,7 @@ psql -d shieldai -f migrations/0007_ai_tools_library.sql
 psql -d shieldai -f migrations/0008_auth.sql
 psql -d shieldai -f migrations/0009_device_auth.sql
 psql -d shieldai -f migrations/0010_email_verification.sql
+psql -d shieldai -f migrations/0011_session_revocation.sql
 ```
 
 Seed the AI tool library (idempotent — safe to re-run after the seed list grows):
@@ -74,6 +76,8 @@ Set `JWT_SECRET` in production (an ephemeral one is generated per-process otherw
 No real mail provider is wired up (`src/email.js`) — verification links are logged to stdout in dev. Set `SMTP_HOST` only once you've actually implemented sending there; until then it just fails loudly instead of silently pretending to send.
 
 `0001_base.sql`'s `organizations`/`users` stub has since grown real auth columns (0008) — the rest of the real v1.0 base schema (e.g. a proper invite flow) still isn't part of this addendum.
+
+Deploying 0011 forces everyone to re-authenticate: existing tokens have no `sid` claim to match a `sessions` row against, so `requireAuth` correctly treats them as revoked. Unlike 0010's backfill, there's nothing to grandfather here — sessions didn't exist before this migration.
 
 ## Web
 
@@ -110,9 +114,11 @@ node extension/build-hash.js
 
 | Route | Purpose |
 |---|---|
-| `POST /auth/register`, `POST /auth/login`, `POST /auth/verify-email`, `GET /auth/me` | password auth + JWT sessions + email verification (Section 7) |
+| `POST /auth/register`, `POST /auth/login`, `POST /auth/verify-email`, `GET /auth/me`, `POST /auth/logout` | password auth + JWT sessions + email verification (Section 7) |
 | `GET /auth/sso/login`, `GET /auth/sso/callback` | generic OIDC SSO login — Okta/Azure AD/any compliant IdP (Section 6) |
+| `GET /auth/sessions`, `POST /auth/sessions/:id/revoke` | self-service session management ("log out other devices") |
 | `POST/GET /org/:orgId/install-tokens`, `.../install-tokens/:id/revoke`, `GET /org/:orgId/devices`, `.../devices/:id/revoke` | admin-issued device credentials (Section 7) |
+| `GET /org/:orgId/sessions`, `POST /org/:orgId/sessions/:id/revoke` | admin kills any session in their org — incident response for a stolen laptop/leaked token |
 | `POST /extension/register-device`, `POST /extension/verify-device`, `GET /extension/device-status` | install-token exchange + email verification for devices (a new/unverified email gets a polling ticket, not a token, until the emailed link is clicked) |
 | `GET/POST /consent/*` | monitoring notice, acknowledgement, status (Section 4) |
 | `GET/PATCH /org/:orgId/settings` | jurisdictions, gated feature toggles, DNS/proxy flag |

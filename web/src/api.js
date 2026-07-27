@@ -35,6 +35,12 @@ export const login = (email, password) =>
 
 export const getMe = () => authFetch('/auth/me');
 
+export const logout = () => authFetch('/auth/logout', { method: 'POST' });
+
+export const getMySessions = () => authFetch('/auth/sessions');
+
+export const revokeMySession = (id) => authFetch(`/auth/sessions/${id}/revoke`, { method: 'POST' });
+
 export const verifyEmail = (ticket) =>
   fetch(`${API_BASE}/auth/verify-email`, {
     method: 'POST',
@@ -85,3 +91,7 @@ export const revokeInstallToken = (orgId, id) =>
 export const getDevices = (orgId) => authFetch(`/org/${orgId}/devices`);
 
 export const revokeDevice = (orgId, id) => authFetch(`/org/${orgId}/devices/${id}/revoke`, { method: 'POST' });
+
+export const getOrgSessions = (orgId) => authFetch(`/org/${orgId}/sessions`);
+
+export const revokeOrgSession = (orgId, id) => authFetch(`/org/${orgId}/sessions/${id}/revoke`, { method: 'POST' });
