@@ -4,19 +4,26 @@ import { setToken } from '../auth.js';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000';
 
-export default function Login({ onAuthenticated }) {
+export default function Login({ onAuthenticated, error: externalError }) {
   const [mode, setMode] = useState('login'); // 'login' | 'register'
   const [form, setForm] = useState({ org_name: '', email: '', password: '' });
   const [error, setError] = useState(null);
+  const [pendingMessage, setPendingMessage] = useState(null);
+  const shownError = error || externalError;
 
   const submit = async (e) => {
     e.preventDefault();
     setError(null);
+    setPendingMessage(null);
     try {
-      const result =
-        mode === 'login' ? await login(form.email, form.password) : await register(form.org_name, form.email, form.password);
-      setToken(result.token);
-      onAuthenticated();
+      if (mode === 'login') {
+        const result = await login(form.email, form.password);
+        setToken(result.token);
+        onAuthenticated();
+      } else {
+        const result = await register(form.org_name, form.email, form.password);
+        setPendingMessage(result.message);
+      }
     } catch (err) {
       setError(err.message);
     }
@@ -30,30 +37,34 @@ export default function Login({ onAuthenticated }) {
         <button onClick={() => setMode('register')} disabled={mode === 'register'}>Register org</button>
       </div>
 
-      <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {mode === 'register' && (
+      {pendingMessage ? (
+        <p>{pendingMessage}</p>
+      ) : (
+        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {mode === 'register' && (
+            <input
+              placeholder="Organization name"
+              value={form.org_name}
+              onChange={(e) => setForm({ ...form, org_name: e.target.value })}
+            />
+          )}
           <input
-            placeholder="Organization name"
-            value={form.org_name}
-            onChange={(e) => setForm({ ...form, org_name: e.target.value })}
+            type="email"
+            placeholder="Email"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
           />
-        )}
-        <input
-          type="email"
-          placeholder="Email"
-          value={form.email}
-          onChange={(e) => setForm({ ...form, email: e.target.value })}
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={form.password}
-          onChange={(e) => setForm({ ...form, password: e.target.value })}
-        />
-        <button type="submit">{mode === 'login' ? 'Log in' : 'Create org + admin account'}</button>
-      </form>
+          <input
+            type="password"
+            placeholder="Password"
+            value={form.password}
+            onChange={(e) => setForm({ ...form, password: e.target.value })}
+          />
+          <button type="submit">{mode === 'login' ? 'Log in' : 'Create org + admin account'}</button>
+        </form>
+      )}
 
-      {error && <p style={{ color: '#a33' }}>{error}</p>}
+      {shownError && <p style={{ color: '#a33' }}>{shownError}</p>}
 
       <p style={{ marginTop: 16 }}>
         <small>

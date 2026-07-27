@@ -35,6 +35,20 @@ export const login = (email, password) =>
 
 export const getMe = () => authFetch('/auth/me');
 
+export const verifyEmail = (ticket) =>
+  fetch(`${API_BASE}/auth/verify-email`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ticket }),
+  }).then(json);
+
+export const verifyDevice = (ticket) =>
+  fetch(`${API_BASE}/extension/verify-device`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ticket }),
+  }).then(json);
+
 // Public — no auth required (Section 4.1/3.2 are meant to be readable
 // without a logged-in session).
 export const getNotice = () => fetch(`${API_BASE}/consent/notice`).then(json);

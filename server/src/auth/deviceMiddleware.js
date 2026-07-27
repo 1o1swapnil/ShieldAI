@@ -20,11 +20,13 @@ async function requireDeviceAuth(req, res, next) {
     return res.status(401).json({ error: 'not a device token' });
   }
 
-  const { rows } = await pool.query('SELECT id, org_id, user_id, revoked_at FROM devices WHERE id = $1', [
+  const { rows } = await pool.query('SELECT id, org_id, user_id, revoked_at, verified_at FROM devices WHERE id = $1', [
     payload.sub,
   ]);
-  if (!rows.length || rows[0].revoked_at) {
-    return res.status(401).json({ error: 'device revoked or not found' });
+  // verified_at should always be set by the time a device token exists —
+  // this is a defense-in-depth backstop, not the primary gate.
+  if (!rows.length || rows[0].revoked_at || !rows[0].verified_at) {
+    return res.status(401).json({ error: 'device revoked, unverified, or not found' });
   }
 
   req.device = { id: rows[0].id, orgId: rows[0].org_id, userId: rows[0].user_id };

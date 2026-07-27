@@ -14,6 +14,7 @@ Also includes v1.0 base pieces the addendum assumed already existed:
 - the real AI tool library (Section 12): 150+ seeded tools across 15 categories, replacing the `ai_tools` stub
 - real authentication + SSO (Sections 6-7): password login, JWT sessions, a generic OIDC connector (Okta/Azure AD/any compliant IdP), and org/role authorization on every admin-dashboard route — replacing the "trust whatever org_id the client sends" model every earlier endpoint used
 - device-token auth (Section 7) for the extension's own ingestion calls: an admin-issued install token exchanges once for a long-lived, individually revocable device token, closing the last "trust whatever org_id/user_id the client sends" gap
+- CORS, and email verification before an account or a device gets a working credential — closes the "type any email, get attributed to it" identity gap
 
 ## Structure
 
@@ -49,6 +50,7 @@ psql -d shieldai -f migrations/0006_activity_events.sql
 psql -d shieldai -f migrations/0007_ai_tools_library.sql
 psql -d shieldai -f migrations/0008_auth.sql
 psql -d shieldai -f migrations/0009_device_auth.sql
+psql -d shieldai -f migrations/0010_email_verification.sql
 ```
 
 Seed the AI tool library (idempotent — safe to re-run after the seed list grows):
@@ -64,7 +66,9 @@ npm test
 npm start   # listens on PORT (default 3000)
 ```
 
-Set `JWT_SECRET` in production (an ephemeral one is generated per-process otherwise — fine for local dev, invalidates sessions on every restart). For SSO, set `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URI` (any standards-compliant OIDC provider — Okta, Azure AD, etc.) and `WEB_ORIGIN` (where the callback redirects with the issued token).
+Set `JWT_SECRET` in production (an ephemeral one is generated per-process otherwise — fine for local dev, invalidates sessions on every restart). For SSO, set `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URI` (any standards-compliant OIDC provider — Okta, Azure AD, etc.) and `WEB_ORIGIN` (used for both the SSO callback redirect and CORS — set it to the web app's real origin; comma-separate for multiple).
+
+No real mail provider is wired up (`src/email.js`) — verification links are logged to stdout in dev. Set `SMTP_HOST` only once you've actually implemented sending there; until then it just fails loudly instead of silently pretending to send.
 
 `0001_base.sql`'s `organizations`/`users` stub has since grown real auth columns (0008) — the rest of the real v1.0 base schema (e.g. a proper invite flow) still isn't part of this addendum.
 
@@ -103,10 +107,10 @@ node extension/build-hash.js
 
 | Route | Purpose |
 |---|---|
-| `POST /auth/register`, `POST /auth/login`, `GET /auth/me` | password auth + JWT sessions (Section 7) |
+| `POST /auth/register`, `POST /auth/login`, `POST /auth/verify-email`, `GET /auth/me` | password auth + JWT sessions + email verification (Section 7) |
 | `GET /auth/sso/login`, `GET /auth/sso/callback` | generic OIDC SSO login — Okta/Azure AD/any compliant IdP (Section 6) |
 | `POST/GET /org/:orgId/install-tokens`, `.../install-tokens/:id/revoke`, `GET /org/:orgId/devices`, `.../devices/:id/revoke` | admin-issued device credentials (Section 7) |
-| `POST /extension/register-device` | exchanges an install token for a long-lived device token |
+| `POST /extension/register-device`, `POST /extension/verify-device`, `GET /extension/device-status` | install-token exchange + email verification for devices (a new/unverified email gets a polling ticket, not a token, until the emailed link is clicked) |
 | `GET/POST /consent/*` | monitoring notice, acknowledgement, status (Section 4) |
 | `GET/PATCH /org/:orgId/settings` | jurisdictions, gated feature toggles, DNS/proxy flag |
 | `GET /org/security-summary` | retention/encryption/sub-processor summary (Section 3) |

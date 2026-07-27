@@ -64,7 +64,14 @@ export default function Devices({ orgId }) {
       {devices.length === 0 && <p>No devices registered yet.</p>}
       {devices.map((d) => (
         <div key={d.id} style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12, marginBottom: 8 }}>
-          <div>{d.email || d.user_id} {d.revoked_at && <span style={{ color: '#a33' }}>(revoked)</span>}</div>
+          <div>
+            {d.email || d.user_id}{' '}
+            {d.revoked_at ? (
+              <span style={{ color: '#a33' }}>(revoked)</span>
+            ) : !d.verified_at ? (
+              <span style={{ color: '#c90' }}>(awaiting email verification)</span>
+            ) : null}
+          </div>
           <small>Last seen: {new Date(d.last_seen_at).toLocaleString()}</small>
           {!d.revoked_at && (
             <div>

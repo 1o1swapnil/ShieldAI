@@ -85,9 +85,11 @@ router.get('/callback', async (req, res) => {
     if (!user) {
       // First SSO login for this identity: least-privilege 'employee' —
       // org admins are provisioned via /auth/register or promoted manually.
+      // email_verified_at is set immediately: the IdP already proved
+      // ownership as part of the org's own directory.
       const { rows } = await pool.query(
-        `INSERT INTO users (org_id, email, role, auth_provider, sso_issuer, sso_subject)
-         VALUES ($1, $2, 'employee', 'sso', $3, $4)
+        `INSERT INTO users (org_id, email, role, auth_provider, sso_issuer, sso_subject, email_verified_at)
+         VALUES ($1, $2, 'employee', 'sso', $3, $4, NOW())
          RETURNING id, org_id, email, role`,
         [ticket.orgId, claims.email || `${claims.sub}@sso.local`, config.issuer, claims.sub]
       );

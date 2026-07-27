@@ -4,6 +4,42 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- CORS middleware (`src/cors.js`) — the API previously had none, which
+  would break every browser request once the web app and API sit on
+  different origins (the normal production case).
+- Email verification, closing the "type any email, get attributed to it"
+  identity gap flagged as a pilot blocker:
+  - `users.email_verified_at`, `devices.verified_at` (migration 0010,
+    with a backfill so pre-existing accounts/devices aren't silently
+    locked out).
+  - `POST /auth/register` no longer issues a session — it sends a
+    verification link and returns `{pending: true}`. `POST /auth/login`
+    403s until verified. `POST /auth/verify-email` completes registration
+    and issues the first session in one step.
+  - `POST /extension/register-device` only issues a device token
+    immediately for a *returning, already-verified* email. A new/
+    unverified email gets a polling ticket instead — the extension polls
+    `GET /extension/device-status` until the human clicks the emailed
+    link (`POST /extension/verify-device`, opened in a normal browser
+    tab), which is the only thing that unlocks the real device token.
+    Possessing the polling ticket alone never grants one.
+  - SSO-provisioned users are marked verified immediately (the IdP
+    already proved ownership as part of the org's directory).
+  - `src/email.js`: no real mail provider wired up — logs the
+    verification link to stdout in dev instead of pretending to send it;
+    fails loudly rather than silently no-op-ing if `SMTP_HOST` is set.
+  - Web app: `Login.jsx` shows the pending message instead of assuming a
+    token; a new `?ticket=`/`?device_ticket=` landing (`VerifyDevice.jsx`)
+    completes each flow.
+
+### Verified
+- Live: CORS reflects only configured origins; a fresh registration is
+  rejected at login until verified, then works immediately after clicking
+  the (console-logged) link; a new device gets no usable token at all
+  until verification, while a returning verified user's reinstall skips
+  the flow entirely; a fabricated/wrong-secret ticket is rejected.
+
 ## [0.4.0] - 2026-07-27
 
 ### Added

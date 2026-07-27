@@ -9,13 +9,16 @@ import ActivitySummary from './pages/ActivitySummary.jsx';
 import ToolLibrary from './pages/ToolLibrary.jsx';
 import Devices from './pages/Devices.jsx';
 import Login from './pages/Login.jsx';
-import { getMe } from './api.js';
+import VerifyDevice from './pages/VerifyDevice.jsx';
+import { getMe, verifyEmail } from './api.js';
 import { getToken, setToken, clearToken } from './auth.js';
 
 export default function App() {
   const [tab, setTab] = useState('admin');
   const [user, setUser] = useState(null);
   const [checkedAuth, setCheckedAuth] = useState(false);
+  const [verifyError, setVerifyError] = useState(null);
+  const [deviceTicket] = useState(() => new URLSearchParams(window.location.search).get('device_ticket'));
 
   const refreshUser = () => {
     getMe()
@@ -28,20 +31,42 @@ export default function App() {
   };
 
   useEffect(() => {
-    // Picks up the JWT an SSO callback redirect appended (?token=...).
+    if (deviceTicket) return; // handled entirely by <VerifyDevice> below, no session needed
+
     const params = new URLSearchParams(window.location.search);
+
+    // Picks up the JWT an SSO callback redirect appended (?token=...).
     const tokenFromSso = params.get('token');
     if (tokenFromSso) {
       setToken(tokenFromSso);
       window.history.replaceState({}, '', window.location.pathname);
+      return refreshUser();
+    }
+
+    // Email-verification link click (?ticket=...) — exchanges it for a
+    // real session in one step.
+    const verificationTicket = params.get('ticket');
+    if (verificationTicket) {
+      window.history.replaceState({}, '', window.location.pathname);
+      verifyEmail(verificationTicket)
+        .then((result) => {
+          setToken(result.token);
+          refreshUser();
+        })
+        .catch((err) => {
+          setVerifyError(err.message);
+          setCheckedAuth(true);
+        });
+      return;
     }
 
     if (getToken()) refreshUser();
     else setCheckedAuth(true);
   }, []);
 
+  if (deviceTicket) return <VerifyDevice ticket={deviceTicket} />;
   if (!checkedAuth) return null;
-  if (!user) return <Login onAuthenticated={refreshUser} />;
+  if (!user) return <Login onAuthenticated={refreshUser} error={verifyError} />;
 
   const orgId = user.orgId;
 

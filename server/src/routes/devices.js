@@ -37,7 +37,7 @@ router.post('/:orgId/install-tokens/:id/revoke', requireAuth, requireAdmin, requ
 
 router.get('/:orgId/devices', requireAuth, requireAdmin, requireOrgMatch(), async (req, res) => {
   const { rows } = await pool.query(
-    `SELECT d.id, d.user_id, u.email, d.registered_at, d.last_seen_at, d.revoked_at
+    `SELECT d.id, d.user_id, u.email, d.registered_at, d.last_seen_at, d.verified_at, d.revoked_at
      FROM devices d LEFT JOIN users u ON u.id = d.user_id
      WHERE d.org_id = $1
      ORDER BY d.last_seen_at DESC`,

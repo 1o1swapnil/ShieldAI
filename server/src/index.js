@@ -1,4 +1,5 @@
 const express = require('express');
+const { cors } = require('./cors');
 const authRouter = require('./routes/auth');
 const ssoRouter = require('./routes/sso');
 const consentRouter = require('./routes/consent');
@@ -13,6 +14,7 @@ const activityRouter = require('./routes/activity');
 const devicesRouter = require('./routes/devices');
 
 const app = express();
+app.use(cors);
 app.use(express.json());
 app.use('/auth', authRouter);
 app.use('/auth/sso', ssoRouter);
