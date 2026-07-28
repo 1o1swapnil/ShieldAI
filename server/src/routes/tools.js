@@ -15,8 +15,8 @@ const router = express.Router();
 // client-supplied numbers.
 router.post('/classify', requireAuth, requireAdmin, requireOrgMatch((req) => req.body?.org_id), async (req, res) => {
   const { org_id, domain, title, script_hints, distinct_users, avg_session_seconds } = req.body || {};
-  if (!org_id || !domain) {
-    return res.status(400).json({ error: 'org_id and domain are required' });
+  if (!domain) {
+    return res.status(400).json({ error: 'domain is required' });
   }
 
   const { confidence, featureSnapshot, defaultAction, explanation } = await classifyDomain({
@@ -40,7 +40,6 @@ router.post('/classify', requireAuth, requireAdmin, requireOrgMatch((req) => req
 // Paginated queue, sorted by ml_confidence DESC (2.5).
 router.get('/unverified', requireAuth, requireAdmin, requireOrgMatch((req) => req.query.org_id), async (req, res) => {
   const { org_id, limit = 50, offset = 0 } = req.query;
-  if (!org_id) return res.status(400).json({ error: 'org_id is required' });
 
   const { rows } = await pool.query(
     `SELECT id, domain, ml_confidence, feature_snapshot, first_seen_at, times_seen, review_status, reviewed_by, reviewed_at

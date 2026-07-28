@@ -60,7 +60,6 @@ router.post('/events', requireDeviceAuth, async (req, res) => {
 
 router.get('/events', requireAuth, requireAdmin, requireOrgMatch((req) => req.query.org_id), async (req, res) => {
   const { org_id, limit = 50, offset = 0 } = req.query;
-  if (!org_id) return res.status(400).json({ error: 'org_id is required' });
 
   const { rows } = await pool.query(
     `SELECT id, user_id, domain, ai_tool_id, title, confidence, session_id, duration_seconds, occurred_at
@@ -76,7 +75,6 @@ router.get('/events', requireAuth, requireAdmin, requireOrgMatch((req) => req.qu
 // Per-tool usage rollup for the admin dashboard.
 router.get('/summary', requireAuth, requireAdmin, requireOrgMatch((req) => req.query.org_id), async (req, res) => {
   const { org_id } = req.query;
-  if (!org_id) return res.status(400).json({ error: 'org_id is required' });
 
   const { rows } = await pool.query(
     `SELECT ae.domain, at.name AS tool_name, COUNT(*)::int AS event_count,

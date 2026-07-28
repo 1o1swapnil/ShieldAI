@@ -11,8 +11,8 @@ const router = express.Router();
 // via Okta" flow — no network visibility required.
 router.post('/scan', requireAuth, requireAdmin, requireOrgMatch((req) => req.body?.org_id), async (req, res) => {
   const { org_id, grants } = req.body || {};
-  if (!org_id || !Array.isArray(grants)) {
-    return res.status(400).json({ error: 'org_id and grants[] are required' });
+  if (!Array.isArray(grants)) {
+    return res.status(400).json({ error: 'grants[] is required' });
   }
 
   const { rows: aiTools } = await pool.query('SELECT id, name, domain FROM ai_tools');
@@ -34,7 +34,6 @@ router.post('/scan', requireAuth, requireAdmin, requireOrgMatch((req) => req.bod
 
 router.get('/discovered', requireAuth, requireAdmin, requireOrgMatch((req) => req.query.org_id), async (req, res) => {
   const { org_id } = req.query;
-  if (!org_id) return res.status(400).json({ error: 'org_id is required' });
 
   const { rows } = await pool.query(
     `SELECT id, source, tool_name, matched_ai_tool_id, discovered_via, requesting_user_id, status, created_at

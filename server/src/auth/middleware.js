@@ -38,10 +38,14 @@ function requireAdmin(req, res, next) {
 
 // getOrgId(req) => the org id this request is trying to act on. Defaults to
 // req.params.orgId. 403s if it doesn't match the authenticated user's org —
-// closes the "any org_id the client sends is trusted" gap.
+// closes the "any org_id the client sends is trusted" gap. A request that
+// omits org_id entirely gets 400, not 403 — it's not making an authorization
+// claim at all, so "org mismatch" would be a misleading response.
 function requireOrgMatch(getOrgId = (req) => req.params.orgId) {
   return (req, res, next) => {
-    if (getOrgId(req) !== req.user?.orgId) {
+    const orgId = getOrgId(req);
+    if (!orgId) return res.status(400).json({ error: 'org_id is required' });
+    if (orgId !== req.user?.orgId) {
       return res.status(403).json({ error: 'org mismatch' });
     }
     next();
