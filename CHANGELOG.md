@@ -4,6 +4,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Deployment artifacts: `server/Dockerfile`, `web/Dockerfile` (multi-stage,
+  built assets served via nginx with SPA fallback so `/verify-email` and
+  similar paths don't 404), root `docker-compose.yml` wiring
+  Postgres + server + web, and `.env.example`.
+- `server/scripts/migrate.js` — a real migration runner (tracked in a new
+  `schema_migrations` table), replacing the manual `psql -f` sequence for
+  automated container startup. Idempotent: safe to run on every boot.
+  `docker-entrypoint.sh` runs it, then the AI-tool seed script, then starts
+  the server.
+- CI gained a `docker-build` job (both images), now a required status
+  check alongside the existing three.
+
+### Verified
+- Live, with the actual containers: `docker compose up` brings up a fresh
+  stack with zero manual steps — all 11 migrations apply, the tool library
+  seeds, register → verify-email → login works end to end through the
+  exposed ports, CORS is correctly wired between the two container
+  origins, the nginx SPA fallback correctly serves `/verify-email`
+  (would otherwise 404), and a server container restart correctly skips
+  already-applied migrations while data persists in the Postgres volume.
+
 ## [0.7.0] - 2026-07-27
 
 ### Added

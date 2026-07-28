@@ -110,6 +110,26 @@ node extension/build-hash.js
 
 `background.js` points at `http://localhost:3000` by default — update `API_BASE` in `background.js` and `notice.js` for a deployed API.
 
+## Deployment
+
+```
+cp .env.example .env   # set POSTGRES_PASSWORD, JWT_SECRET, WEB_ORIGIN, VITE_API_BASE
+docker compose up --build
+```
+
+Brings up Postgres, the API (`localhost:3000`), and the web app (`localhost:8080`). The server's
+`docker-entrypoint.sh` runs `scripts/migrate.js` (applies `migrations/*.sql` in order, tracked in a
+`schema_migrations` table — safe to run on every container start, unlike the manual `psql -f` sequence above) and
+`seeds/seed-ai-tools.js` before starting, so a fresh stack is ready with no manual steps. Data persists in the
+`postgres_data` volume across restarts.
+
+`web/Dockerfile` builds the Vite app and serves it via nginx with an SPA fallback (`nginx.conf`) — every path
+(`/`, `/verify-email`, etc.) serves `index.html` since routing is entirely client-side via query params, not
+real paths.
+
+Not yet built: TLS termination, a process manager/orchestrator beyond `docker compose` (e.g. Kubernetes
+manifests), and log shipping/monitoring — this gets a pilot running, not a hardened production fleet.
+
 ## API summary
 
 | Route | Purpose |
