@@ -4,6 +4,32 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-07-28
+
+First pilot-ready release: all four sections of the v1.1 design addendum, all v1.0 base infrastructure (activity
+events, AI tool library, auth/SSO, device tokens), and every gap from the pilot-readiness review are now built and
+live-verified.
+
+### Added
+- `TODO.md` — pilot-readiness backlog for what's still open (password reset, `/health` endpoint, admin invite flow,
+  unified audit log, real Kubernetes/TLS/monitoring, CI integration tests, etc.).
+- Extension `API_BASE` moved out of source into `extension/config.json` (`{"apiBase": "..."}`) — one file to edit
+  before packaging for a real org, no JS changes or rebuild required. Included in the `build-hash.js` signed-build
+  hash so a tampered config is caught the same way a tampered source file would be.
+
+### Fixed
+- `chrome-extension://` origins are now always allowed by the API's CORS middleware regardless of `WEB_ORIGIN`.
+  Found while live-verifying the `config.json` change: the extension's own pages (`notice.html`,
+  `permission-request.html`) were being blocked calling the API, since their origin wasn't in the `WEB_ORIGIN`
+  allowlist. The extension id isn't a secret and bearer-token auth means CORS was never the security boundary for
+  those calls anyway.
+
+### Verified
+- Live, with a real browser: loaded the actual unpacked extension in headless Chromium (via `puppeteer-core`
+  driving real Chromium, not a mock), confirmed `config.json` resolves correctly from inside the extension's own
+  context, and confirmed a live call to `GET /consent/notice` against the running server succeeds end to end —
+  failed before the CORS fix, succeeded after.
+
 ## [0.9.0] - 2026-07-28
 
 ### Added
