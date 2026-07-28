@@ -4,6 +4,7 @@ const pool = require('../db');
 const { signToken } = require('../auth/jwt');
 const { createSession } = require('../auth/sessions');
 const oidc = require('../auth/oidc');
+const { normalizeEmail } = require('../email');
 
 const router = express.Router();
 
@@ -96,8 +97,8 @@ router.get('/callback', async (req, res) => {
       // Gate first-time provisioning on the org already having a member
       // with a matching email domain, so a new SSO identity can only land
       // in an org it plausibly belongs to.
-      const email = claims.email || `${claims.sub}@sso.local`;
-      const domain = email.split('@')[1]?.toLowerCase();
+      const email = normalizeEmail(claims.email || `${claims.sub}@sso.local`);
+      const domain = email.split('@')[1];
       const { rows: domainMatch } = await pool.query(
         `SELECT 1 FROM users WHERE org_id = $1 AND LOWER(SPLIT_PART(email, '@', 2)) = $2 LIMIT 1`,
         [ticket.orgId, domain]

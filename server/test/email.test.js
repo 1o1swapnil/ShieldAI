@@ -69,3 +69,15 @@ test('send() refuses to hand a malformed/multi-recipient address to the transpor
   const { sendVerificationEmail } = freshEmailModule();
   await assert.rejects(sendVerificationEmail('a@example.com,attacker@evil.com', 'https://app.example.com/verify'));
 });
+
+test('normalizeEmail lowercases so case-flipped variants compare equal', () => {
+  const { normalizeEmail } = freshEmailModule();
+  assert.equal(normalizeEmail('Victim@Company.com'), 'victim@company.com');
+  assert.equal(normalizeEmail('victim@company.com'), 'victim@company.com');
+});
+
+test('normalizeEmail passes through non-string values unchanged', () => {
+  const { normalizeEmail } = freshEmailModule();
+  assert.equal(normalizeEmail(undefined), undefined);
+  assert.equal(normalizeEmail(null), null);
+});

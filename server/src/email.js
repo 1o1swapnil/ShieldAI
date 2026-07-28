@@ -28,6 +28,15 @@ function isValidEmail(email) {
   return typeof email === 'string' && EMAIL_RE.test(email);
 }
 
+// Every real mail provider folds local-part case on delivery regardless of
+// what RFC 5321 technically permits, and `users.email` is now a
+// case-insensitive unique index (migration 0012) — callers must normalize
+// before every lookup or write so a case-flipped variant of an existing
+// address is never treated as a different, unrelated user.
+function normalizeEmail(email) {
+  return typeof email === 'string' ? email.toLowerCase() : email;
+}
+
 async function send({ to, subject, text }) {
   if (!isValidEmail(to)) {
     throw new Error('refusing to send to a malformed or multi-recipient address');
@@ -62,4 +71,4 @@ async function sendPasswordResetEmail(to, link) {
   });
 }
 
-module.exports = { sendVerificationEmail, sendPasswordResetEmail, getTransporter, isValidEmail };
+module.exports = { sendVerificationEmail, sendPasswordResetEmail, getTransporter, isValidEmail, normalizeEmail };

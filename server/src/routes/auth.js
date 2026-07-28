@@ -4,7 +4,7 @@ const { hashPassword, verifyPassword, fingerprintPasswordHash } = require('../au
 const { signToken, verifyToken } = require('../auth/jwt');
 const { requireAuth } = require('../auth/middleware');
 const { createSession } = require('../auth/sessions');
-const { sendVerificationEmail, sendPasswordResetEmail, isValidEmail } = require('../email');
+const { sendVerificationEmail, sendPasswordResetEmail, isValidEmail, normalizeEmail } = require('../email');
 const { createRateLimiter } = require('../rateLimit');
 
 const router = express.Router();
@@ -46,7 +46,8 @@ const forgotPasswordLimiter = createRateLimiter({
 // No session is issued until the email is verified (POST /auth/verify-email)
 // — proves the registrant actually controls this address.
 router.post('/register', registerLimiter, async (req, res) => {
-  const { org_name, email, password } = req.body || {};
+  const { org_name, password } = req.body || {};
+  const email = normalizeEmail(req.body?.email);
   if (!org_name || !email || !password) {
     return res.status(400).json({ error: 'org_name, email, and password are required' });
   }
@@ -96,7 +97,8 @@ router.post('/register', registerLimiter, async (req, res) => {
 });
 
 router.post('/login', loginLimiterByIp, loginLimiterByEmail, async (req, res) => {
-  const { email, password } = req.body || {};
+  const { password } = req.body || {};
+  const email = normalizeEmail(req.body?.email);
   if (!email || !password) return res.status(400).json({ error: 'email and password are required' });
 
   const { rows } = await pool.query(
@@ -151,7 +153,7 @@ router.post('/verify-email', async (req, res) => {
 // password to reset) — the response itself must never leak which emails
 // exist in the system.
 router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
-  const { email } = req.body || {};
+  const email = normalizeEmail(req.body?.email);
   if (!email) return res.status(400).json({ error: 'email is required' });
 
   const { rows } = await pool.query(

@@ -3,7 +3,7 @@ const pool = require('../db');
 const { isVerifiedBuild } = require('../buildVerify');
 const { signToken, verifyToken } = require('../auth/jwt');
 const { requireDeviceAuth } = require('../auth/deviceMiddleware');
-const { sendVerificationEmail, isValidEmail } = require('../email');
+const { sendVerificationEmail, isValidEmail, normalizeEmail } = require('../email');
 
 const router = express.Router();
 
@@ -30,7 +30,8 @@ function issueDeviceToken(deviceId, orgId, userId) {
 // the exact credential that unlocks verification and could self-verify
 // without ever touching the inbox.
 router.post('/register-device', async (req, res) => {
-  const { install_token, email } = req.body || {};
+  const { install_token } = req.body || {};
+  const email = normalizeEmail(req.body?.email);
   if (!install_token || !email) {
     return res.status(400).json({ error: 'install_token and email are required' });
   }
