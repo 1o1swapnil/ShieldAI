@@ -22,6 +22,23 @@ Punch list from the pre-pilot review. Not urgent enough to block anything curren
   `docker-compose.yml` healthchecks (`server` via `node -e` HTTP GET, `web` via `wget`), with `web` now
   `depends_on: server: condition: service_healthy`. Verified: unit tests cover both branches by stubbing
   `pool.query`; the built `web` image was run standalone and its `/health` route confirmed live (200 "ok").
+- ~~SSO login let a caller pick which org a new identity is provisioned into~~ — **done.** The OIDC config is a
+  single shared deployment-wide setting, not per-org, so `GET /auth/sso/login?org_id=<X>` previously let anyone
+  who could complete a real login against that IdP self-provision as an `employee` of any org whose UUID they
+  could see. `server/src/routes/sso.js` now only auto-provisions a first-time SSO identity into an org that
+  already has a member with a matching email domain.
+- ~~SSRF via attacker-controlled `domain` into a raw TLS connect~~ — **done.** `domain` in `POST /activity/events`
+  (device-token only) fed straight into `tls.connect({host: domain})` in the classifier's cert-issuer collector,
+  letting a device-token holder probe internal hosts on port 443. `server/src/classifier/collectors.js` now
+  resolves the domain itself, refuses private/loopback/link-local/CGNAT addresses, and connects to the already-
+  resolved address (closes the SSRF and a DNS-rebinding TOCTOU). Covered by `server/test/collectors.test.js`.
+- ~~`POST /extension/register-device` returned the same ticket needed to self-verify a device~~ — **done.** The
+  polling ticket returned to the caller and the verification ticket emailed to the user are now distinct token
+  types (`device_poll` vs `device_verification`), so holding the polling ticket no longer lets a caller skip the
+  "prove you control this inbox" step. Covered by new tests in `server/test/deviceAuth.test.js`.
+- ~~Unverified Tools admin tab was completely broken~~ — **done.** `web/src/pages/UnverifiedToolsQueue.jsx` used a
+  bare `fetch` instead of the shared `authFetch` helper, so it never sent the bearer token and always 401'd. Now
+  goes through `getUnverifiedTools`/`reviewUnverifiedTool` in `web/src/api.js`, matching every other admin page.
 
 ## Known, already-documented gaps
 
