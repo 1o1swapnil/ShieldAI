@@ -96,8 +96,15 @@ router.get('/callback', async (req, res) => {
       // any org whose UUID they can see (e.g. printed in the web console).
       // Gate first-time provisioning on the org already having a member
       // with a matching email domain, so a new SSO identity can only land
-      // in an org it plausibly belongs to.
-      const email = normalizeEmail(claims.email || `${claims.sub}@sso.local`);
+      // in an org it plausibly belongs to. Without a real email claim
+      // there's nothing to domain-match against — a constant fallback
+      // domain (e.g. "sso.local") would let any other no-email identity
+      // from the same shared IdP piggyback into an org that already has
+      // one such user, so refuse outright instead of falling back.
+      if (!claims.email) {
+        return res.status(403).json({ error: 'SSO auto-provisioning requires an email claim from the identity provider' });
+      }
+      const email = normalizeEmail(claims.email);
       const domain = email.split('@')[1];
       const { rows: domainMatch } = await pool.query(
         `SELECT 1 FROM users WHERE org_id = $1 AND LOWER(SPLIT_PART(email, '@', 2)) = $2 LIMIT 1`,

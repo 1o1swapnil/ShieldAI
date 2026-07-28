@@ -3,9 +3,11 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: shieldai
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-shieldai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?set APP_DB_PASSWORD in .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./server/scripts/init-app-role.sh:/docker-entrypoint-initdb.d/init-app-role.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -18,7 +20,12 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-shieldai}@postgres:5432/shieldai
+      # Superuser — needed for migrations (CREATE EXTENSION, CREATE ROLE).
+      # The app's own runtime queries use APP_DATABASE_URL instead (see
+      # server/src/db.js), a least-privilege role provisioned by
+      # server/scripts/init-app-role.sh.
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/shieldai
+      APP_DATABASE_URL: postgres://shieldai_app:${APP_DB_PASSWORD:?set APP_DB_PASSWORD in .env}@postgres:5432/shieldai
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:8080}
       OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-}

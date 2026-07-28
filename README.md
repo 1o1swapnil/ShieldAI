@@ -55,7 +55,11 @@ psql -d shieldai -f migrations/0008_auth.sql
 psql -d shieldai -f migrations/0009_device_auth.sql
 psql -d shieldai -f migrations/0010_email_verification.sql
 psql -d shieldai -f migrations/0011_session_revocation.sql
+psql -d shieldai -f migrations/0012_case_insensitive_email.sql
+psql -d shieldai -f migrations/0013_users_org_id_not_null.sql
 ```
+
+(Or just use `node scripts/migrate.js` — see Deployment below — it applies whatever's new in `migrations/` in order and tracks what's already run, so it doesn't go stale like this manual list.)
 
 Seed the AI tool library (idempotent — safe to re-run after the seed list grows):
 
@@ -129,7 +133,7 @@ correctly and a live call to `GET /consent/notice` succeeds end to end.
 ## Deployment
 
 ```
-cp .env.example .env   # set POSTGRES_PASSWORD, JWT_SECRET, WEB_ORIGIN, VITE_API_BASE
+cp .env.example .env   # set POSTGRES_PASSWORD, APP_DB_PASSWORD, JWT_SECRET, WEB_ORIGIN, VITE_API_BASE
 docker compose up --build
 ```
 
@@ -139,9 +143,19 @@ Brings up Postgres, the API (`localhost:3000`), and the web app (`localhost:8080
 `seeds/seed-ai-tools.js` before starting, so a fresh stack is ready with no manual steps. Data persists in the
 `postgres_data` volume across restarts.
 
+`POSTGRES_PASSWORD` and `APP_DB_PASSWORD` are both required (no default) — the compose file fails fast if either is
+unset rather than silently starting with a guessable password. `APP_DB_PASSWORD` is for a separate,
+least-privilege `shieldai_app` role (`server/scripts/init-app-role.sh`, provisioned automatically on a fresh
+Postgres volume via the official image's `docker-entrypoint-initdb.d` mechanism) that the app's own runtime queries
+use instead of the migrations' superuser role — contains the blast radius of any future SQL-injection-class bug to
+exactly the DML the app issues. Note this only runs on a *fresh* volume; an existing `postgres_data` volume from
+before this change needs the same `CREATE ROLE`/`GRANT` statements applied manually once.
+
 `web/Dockerfile` builds the Vite app and serves it via nginx with an SPA fallback (`nginx.conf`) — every path
 (`/`, `/verify-email`, etc.) serves `index.html` since routing is entirely client-side via query params, not
-real paths.
+real paths. `nginx.conf` also sends `X-Frame-Options: DENY` and `frame-ancestors 'none'` — the dashboard has
+one-click, no-confirm destructive actions (revoke device/session/install-token) and bearer-token auth gives no
+CSRF token to lean on, so refusing to be framed closes the UI-redressing angle.
 
 Not yet built: TLS termination, a process manager/orchestrator beyond `docker compose` (e.g. Kubernetes
 manifests), and log shipping/monitoring — this gets a pilot running, not a hardened production fleet.
