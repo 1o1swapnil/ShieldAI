@@ -39,6 +39,11 @@ Punch list from the pre-pilot review. Not urgent enough to block anything curren
 - ~~Unverified Tools admin tab was completely broken~~ — **done.** `web/src/pages/UnverifiedToolsQueue.jsx` used a
   bare `fetch` instead of the shared `authFetch` helper, so it never sent the bearer token and always 401'd. Now
   goes through `getUnverifiedTools`/`reviewUnverifiedTool` in `web/src/api.js`, matching every other admin page.
+- ~~`requireOrgMatch` checked org mismatch before checking org_id was even present~~ — **done.** A request omitting
+  `org_id` on `GET /activity/events`, `/activity/summary`, `/integrations/discovered`, or `/tools/unverified` got a
+  misleading "org mismatch" 403 instead of "org_id is required" 400, and made each handler's own `org_id` check
+  dead code. `server/src/auth/middleware.js` now checks presence before comparing; redundant handler-level checks
+  removed. Covered by `server/test/middleware.test.js`.
 
 ## Known, already-documented gaps
 
