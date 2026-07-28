@@ -61,6 +61,13 @@ Punch list from the pre-pilot review. Not urgent enough to block anything curren
 
 ## Known, already-documented gaps
 
+- Extension build-hash "verification" is cosmetic — `POST /extension/config` computes `verified` via
+  `isVerifiedBuild()` (`server/src/buildVerify.js`), but nothing security-relevant is gated on it: every real
+  endpoint (`/activity/events`, `/consent/acknowledge`, etc.) authorizes purely on the device token, and the only
+  consumer of `verified` is a human-facing dashboard flag (`GET /:orgId/extension-versions`). The "hash" is a
+  published SHA-256, not a secret or a signature, so a tampered/backdoored build can just self-report the real
+  hash and still be marked verified. Closing this for real needs code signing / attestation, not a small patch —
+  tracked here rather than fixed ad hoc.
 - `extension/rules.json` hardcodes 2 example domains (chatgpt.com, claude.ai) instead of the real 150+ tool library
   (`server/seeds/ai_tools.json`) — needs a build step generating rules.json from the library.
 - SSO OAuth-grant *discovery* connector (pulling grants from Okta/Azure's admin API) is still a manual-input
