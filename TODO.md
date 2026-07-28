@@ -4,11 +4,13 @@ Punch list from the pre-pilot review. Not urgent enough to block anything curren
 
 ## Top priority
 
-- **Extension `API_BASE` is hardcoded to `localhost:3000`.** `extension/background.js` and `extension/notice.js` both have
-  `const API_BASE = 'http://localhost:3000'; // TODO: point at the deployed ShieldAI API`. As shipped, the extension
-  cannot reach any real deployed server — someone has to hand-edit both files and rebuild before packaging for real
-  employees. Fix: make it configurable (e.g. baked in at build time via `build-hash.js` or read from a small
-  `config.json` shipped alongside `build-info.json`), not a source literal.
+- ~~Extension `API_BASE` hardcoded to `localhost:3000`~~ — **done.** Moved to `extension/config.json`
+  (`{"apiBase": "..."}`), read by both `background.js` and `notice.js`; included in the `build-hash.js` signed-build
+  hash. Fixing this surfaced a real bug: the extension's own pages got blocked by the server's CORS middleware
+  (`chrome-extension://` origins weren't in the `WEB_ORIGIN` allowlist) — fixed in `server/src/cors.js` (always
+  allow `chrome-extension://` origins; bearer-token auth means CORS isn't the security boundary there anyway).
+  Verified live: a real unpacked extension loaded in headless Chromium successfully read `config.json` and called
+  the live API end to end.
 - **No password reset / account recovery.** An admin locked out of `/auth/login` has no path back except a raw DB
   edit. Needs a `POST /auth/forgot-password` + `POST /auth/reset-password` pair, same ticket pattern as email
   verification (`server/src/routes/auth.js`, `server/src/email.js`).

@@ -69,3 +69,13 @@ test('supports a comma-separated list of allowed origins', () => {
   cors({ headers: { origin: 'https://b.example.com' }, method: 'GET' }, res, () => {});
   assert.equal(res.headers['Access-Control-Allow-Origin'], 'https://b.example.com');
 });
+
+test('always allows a chrome-extension:// origin regardless of WEB_ORIGIN', () => {
+  process.env.WEB_ORIGIN = 'https://app.example.com';
+  delete require.cache[require.resolve('../src/cors')];
+  const { cors } = require('../src/cors');
+
+  const res = fakeRes();
+  cors({ headers: { origin: 'chrome-extension://mlbmgnlkbonpafcipikdajccflfmgdbb' }, method: 'GET' }, res, () => {});
+  assert.equal(res.headers['Access-Control-Allow-Origin'], 'chrome-extension://mlbmgnlkbonpafcipikdajccflfmgdbb');
+});

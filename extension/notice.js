@@ -1,6 +1,12 @@
 // 4.1: Monitoring Notice screen, shown before device registration.
-const API_BASE = 'http://localhost:3000'; // TODO: point at the deployed ShieldAI API
 const POLL_INTERVAL_MS = 4000;
+
+// Deployment target lives in config.json, not a source literal — edit
+// that one file (no rebuild-from-source needed) before packaging for a
+// real org.
+const apiBasePromise = fetch(chrome.runtime.getURL('config.json'))
+  .then((r) => r.json())
+  .then((config) => config.apiBase);
 
 const params = new URLSearchParams(window.location.search);
 const installToken = params.get('install_token');
@@ -27,7 +33,8 @@ if (!installToken) {
 
 let noticeVersion = null;
 
-fetch(`${API_BASE}/consent/notice`)
+apiBasePromise
+  .then((apiBase) => fetch(`${apiBase}/consent/notice`))
   .then((r) => r.json())
   .then((data) => {
     noticeVersion = data.version;
@@ -49,7 +56,8 @@ emailInput.addEventListener('input', updateButtonState);
 async function finishRegistration(deviceToken, orgId, userId) {
   await chrome.runtime.sendMessage({ type: 'device-registered', deviceToken, orgId, userId });
 
-  const ackRes = await fetch(`${API_BASE}/consent/acknowledge`, {
+  const apiBase = await apiBasePromise;
+  const ackRes = await fetch(`${apiBase}/consent/acknowledge`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deviceToken}` },
     body: JSON.stringify({ notice_version: noticeVersion }),
@@ -65,7 +73,8 @@ async function finishRegistration(deviceToken, orgId, userId) {
 function pollForVerification(ticket) {
   const interval = setInterval(async () => {
     try {
-      const res = await fetch(`${API_BASE}/extension/device-status?ticket=${encodeURIComponent(ticket)}`);
+      const apiBase = await apiBasePromise;
+      const res = await fetch(`${apiBase}/extension/device-status?ticket=${encodeURIComponent(ticket)}`);
       if (!res.ok) return; // keep polling — link may just not be clicked yet
       const data = await res.json();
       if (data.pending) return;
@@ -81,10 +90,12 @@ function pollForVerification(ticket) {
 ackButton.addEventListener('click', async () => {
   ackButton.disabled = true;
   try {
+    const apiBase = await apiBasePromise;
+
     // Exchange the install token for a device identity (Section 7 gap
     // fix). A new/unverified email doesn't get a device token yet — only
     // a polling ticket, until the emailed verification link is clicked.
-    const regRes = await fetch(`${API_BASE}/extension/register-device`, {
+    const regRes = await fetch(`${apiBase}/extension/register-device`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ install_token: installToken, email: emailInput.value }),

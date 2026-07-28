@@ -40,7 +40,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate extension JSON files
         run: |
-          for f in extension/manifest.json extension/rules.json extension/build-info.json; do
+          for f in extension/manifest.json extension/rules.json extension/build-info.json extension/config.json; do
             node -e "JSON.parse(require('fs').readFileSync('$f', 'utf8'))" && echo "OK: $f"
           done
 

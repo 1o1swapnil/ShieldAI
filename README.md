@@ -103,13 +103,21 @@ token for a long-lived device token (`POST /extension/register-device`) that the
 device-facing call. Revoke a device from the same tab to cut it off immediately, independent of the token's own
 expiry.
 
-Before packaging a release, regenerate the build hash the service worker self-reports:
+The API base URL lives in `extension/config.json` (`{"apiBase": "..."}`), not a source literal — edit that one file
+to point at a deployed API, no JS changes or rebuild-from-source needed. It defaults to `http://localhost:3000` for
+local dev.
+
+Before packaging a release, regenerate the build hash the service worker self-reports (includes `config.json`, so a
+tampered config is caught the same way a tampered source file would be):
 
 ```
 node extension/build-hash.js
 ```
 
-`background.js` points at `http://localhost:3000` by default — update `API_BASE` in `background.js` and `notice.js` for a deployed API.
+The API's CORS middleware (`server/src/cors.js`) always allows `chrome-extension://` origins regardless of
+`WEB_ORIGIN` — the extension's id isn't a secret, and bearer-token auth means CORS isn't the security boundary for
+those calls. Verified against a real unpacked extension loaded in headless Chromium: `config.json` resolves
+correctly and a live call to `GET /consent/notice` succeeds end to end.
 
 ## Deployment
 

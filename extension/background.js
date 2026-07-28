@@ -1,5 +1,18 @@
-const API_BASE = 'http://localhost:3000'; // TODO: point at the deployed ShieldAI API
 const POLL_ALARM = 'shieldai-config-poll';
+
+// Deployment target lives in config.json, not a source literal — edit
+// that one file (no rebuild-from-source needed) before packaging for a
+// real org. Cached per service-worker lifetime; re-fetching is cheap
+// (local file) if the worker gets restarted.
+let apiBasePromise = null;
+function getApiBase() {
+  if (!apiBasePromise) {
+    apiBasePromise = fetch(chrome.runtime.getURL('config.json'))
+      .then((r) => r.json())
+      .then((config) => config.apiBase);
+  }
+  return apiBasePromise;
+}
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.tabs.create({ url: chrome.runtime.getURL('notice.html') });
@@ -56,7 +69,8 @@ async function reportPageVisit(message, tabId) {
   const { deviceToken } = await chrome.storage.local.get(['deviceToken']);
   if (!deviceToken) return;
 
-  await fetch(`${API_BASE}/activity/events`, {
+  const apiBase = await getApiBase();
+  await fetch(`${apiBase}/activity/events`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deviceToken}` },
     body: JSON.stringify({
@@ -83,7 +97,8 @@ async function reportConfig() {
 
   const { version, build_hash } = await fetch(chrome.runtime.getURL('build-info.json')).then((r) => r.json());
 
-  const res = await fetch(`${API_BASE}/extension/config`, {
+  const apiBase = await getApiBase();
+  const res = await fetch(`${apiBase}/extension/config`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deviceToken}` },
     body: JSON.stringify({
