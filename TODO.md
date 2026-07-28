@@ -58,6 +58,14 @@ Punch list from the pre-pilot review. Not urgent enough to block anything curren
 - ~~`PATCH /tools/unverified/:id` trusted `reviewed_by` from the request body~~ — **done.** An admin could attribute
   a review decision to an arbitrary user id, weakening the audit trail. `server/src/routes/tools.js` now derives
   `reviewed_by` from `req.user.sub` (the authenticated admin) instead.
+- ~~`users.email` was case-sensitive everywhere, bypassing the register-device cross-org guard~~ — **done.** Every
+  real mail provider folds local-part case on delivery, so a case-flipped variant of a real victim's email (e.g.
+  `Victim@Company.com` vs `victim@company.com`) was silently treated as a brand-new, unrelated user, letting an
+  attacker register that variant under their own org's install token and get a verification email delivered to
+  the real victim's inbox. `migrations/0012_case_insensitive_email.sql` lowercases existing data and replaces the
+  plain unique index with one on `LOWER(email)`; `normalizeEmail()` in `server/src/email.js` is now applied before
+  every lookup/write touching `users.email` in `auth.js`, `extension.js`, and `sso.js`. Covered by new tests in
+  `server/test/email.test.js` and `server/test/extensionRegisterDevice.test.js`.
 
 ## Known, already-documented gaps
 
