@@ -44,6 +44,20 @@ Punch list from the pre-pilot review. Not urgent enough to block anything curren
   misleading "org mismatch" 403 instead of "org_id is required" 400, and made each handler's own `org_id` check
   dead code. `server/src/auth/middleware.js` now checks presence before comparing; redundant handler-level checks
   removed. Covered by `server/test/middleware.test.js`.
+- ~~`register-device` let a caller bind a device to another org's existing user~~ — **done.** It looked up users by
+  email only, with no check that the user's org matched the install token's org — an Org B admin who knew any
+  email already verified elsewhere could mint a device token asserting `{orgId: Org B, userId: <Org A's real
+  user>}`. `server/src/routes/extension.js` now 409s if the looked-up user's `org_id` doesn't match the install
+  token's org. Covered by `server/test/extensionRegisterDevice.test.js`.
+- ~~`email` was never validated as a single address, enabling SMTP recipient-list injection~~ — **done.**
+  `POST /auth/register` and `POST /extension/register-device` only checked `email` was non-empty; nodemailer
+  parses comma/semicolon-separated `to` values as multiple independent recipients, so ShieldAI's own SMTP relay
+  could be used to blast a legitimate verification email to an attacker-chosen recipient list. Added
+  `isValidEmail()` in `server/src/email.js`, enforced at both intake routes plus as a hard backstop inside
+  `send()` itself. Covered by expanded `server/test/email.test.js`.
+- ~~`PATCH /tools/unverified/:id` trusted `reviewed_by` from the request body~~ — **done.** An admin could attribute
+  a review decision to an arbitrary user id, weakening the audit trail. `server/src/routes/tools.js` now derives
+  `reviewed_by` from `req.user.sub` (the authenticated admin) instead.
 
 ## Known, already-documented gaps
 

@@ -17,7 +17,22 @@ function getTransporter() {
   return transporter;
 }
 
+// A single, non-list address. nodemailer parses comma/semicolon-separated
+// `to` values as multiple independent recipients (and puts every one of
+// them on the real SMTP envelope + To: header) — without this check,
+// anything that lets a caller control `to` (registration, password reset)
+// would let them turn our own SMTP relay into an arbitrary-recipient
+// spam/phishing vector using a legitimate, real ShieldAI email.
+const EMAIL_RE = /^[^\s,;<>@]+@[^\s,;<>@]+\.[^\s,;<>@]+$/;
+function isValidEmail(email) {
+  return typeof email === 'string' && EMAIL_RE.test(email);
+}
+
 async function send({ to, subject, text }) {
+  if (!isValidEmail(to)) {
+    throw new Error('refusing to send to a malformed or multi-recipient address');
+  }
+
   if (!process.env.SMTP_HOST) {
     console.log(`[dev-mailer] ${subject} for ${to}: ${text}`);
     return;
@@ -47,4 +62,4 @@ async function sendPasswordResetEmail(to, link) {
   });
 }
 
-module.exports = { sendVerificationEmail, sendPasswordResetEmail, getTransporter };
+module.exports = { sendVerificationEmail, sendPasswordResetEmail, getTransporter, isValidEmail };

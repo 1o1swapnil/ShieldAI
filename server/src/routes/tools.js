@@ -64,7 +64,7 @@ router.get('/unverified', requireAuth, requireAdmin, requireOrgMatch((req) => re
 // org_id isn't in the URL here, so the org-match check happens inline
 // against the row itself rather than via requireOrgMatch.
 router.patch('/unverified/:id', requireAuth, requireAdmin, async (req, res) => {
-  const { review_status, reviewed_by } = req.body || {};
+  const { review_status } = req.body || {};
   if (!['confirmed_ai', 'dismissed'].includes(review_status)) {
     return res.status(400).json({ error: "review_status must be 'confirmed_ai' or 'dismissed'" });
   }
@@ -75,12 +75,14 @@ router.patch('/unverified/:id', requireAuth, requireAdmin, async (req, res) => {
   if (!existing.length) return res.status(404).json({ error: 'not found' });
   if (existing[0].org_id !== req.user.orgId) return res.status(403).json({ error: 'org mismatch' });
 
+  // reviewed_by is the authenticated admin's own id, not whatever the body
+  // says — an admin audit trail can't be trusted if it's client-supplied.
   const { rows } = await pool.query(
     `UPDATE unverified_tools_queue
      SET review_status = $1, reviewed_by = $2, reviewed_at = NOW()
      WHERE id = $3
      RETURNING domain`,
-    [review_status, reviewed_by || null, req.params.id]
+    [review_status, req.user.sub, req.params.id]
   );
 
   let aiToolId = null;

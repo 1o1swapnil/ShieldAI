@@ -4,7 +4,7 @@ const { hashPassword, verifyPassword, fingerprintPasswordHash } = require('../au
 const { signToken, verifyToken } = require('../auth/jwt');
 const { requireAuth } = require('../auth/middleware');
 const { createSession } = require('../auth/sessions');
-const { sendVerificationEmail, sendPasswordResetEmail } = require('../email');
+const { sendVerificationEmail, sendPasswordResetEmail, isValidEmail } = require('../email');
 const { createRateLimiter } = require('../rateLimit');
 
 const router = express.Router();
@@ -49,6 +49,9 @@ router.post('/register', registerLimiter, async (req, res) => {
   const { org_name, email, password } = req.body || {};
   if (!org_name || !email || !password) {
     return res.status(400).json({ error: 'org_name, email, and password are required' });
+  }
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ error: 'email must be a single valid email address' });
   }
   if (password.length < 8) {
     return res.status(400).json({ error: 'password must be at least 8 characters' });

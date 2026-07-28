@@ -3,7 +3,7 @@ const pool = require('../db');
 const { isVerifiedBuild } = require('../buildVerify');
 const { signToken, verifyToken } = require('../auth/jwt');
 const { requireDeviceAuth } = require('../auth/deviceMiddleware');
-const { sendVerificationEmail } = require('../email');
+const { sendVerificationEmail, isValidEmail } = require('../email');
 
 const router = express.Router();
 
@@ -34,6 +34,9 @@ router.post('/register-device', async (req, res) => {
   if (!install_token || !email) {
     return res.status(400).json({ error: 'install_token and email are required' });
   }
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ error: 'email must be a single valid email address' });
+  }
 
   const { rows: tokenRows } = await pool.query(
     'SELECT id, org_id FROM install_tokens WHERE token = $1 AND revoked_at IS NULL',
@@ -42,7 +45,16 @@ router.post('/register-device', async (req, res) => {
   if (!tokenRows.length) return res.status(401).json({ error: 'invalid or revoked install token' });
   const { id: installTokenId, org_id: orgId } = tokenRows[0];
 
-  const { rows: userRows } = await pool.query('SELECT id, email_verified_at FROM users WHERE email = $1', [email]);
+  const { rows: userRows } = await pool.query('SELECT id, org_id, email_verified_at FROM users WHERE email = $1', [
+    email,
+  ]);
+  // A user's org is fixed for life — reusing this email for a device under
+  // a different org's install token would mint a device token asserting
+  // {orgId: <this org>, userId: <a different org's real user>}, letting
+  // that org see/attribute activity to a user who never consented to join it.
+  if (userRows.length && userRows[0].org_id !== orgId) {
+    return res.status(409).json({ error: 'this email is already registered to a different organization' });
+  }
   const alreadyVerified = Boolean(userRows[0]?.email_verified_at);
 
   // Transactional: if the verification email fails to send, roll back the

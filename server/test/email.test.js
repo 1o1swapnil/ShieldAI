@@ -41,3 +41,31 @@ test('SMTP_SECURE=true switches to implicit TLS (port 465 style)', () => {
   delete process.env.SMTP_HOST;
   delete process.env.SMTP_SECURE;
 });
+
+test('isValidEmail accepts a single well-formed address', () => {
+  const { isValidEmail } = freshEmailModule();
+  assert.equal(isValidEmail('a@example.com'), true);
+});
+
+// nodemailer parses comma/semicolon-separated `to` values as multiple
+// independent recipients — this is the exact shape that turned registration
+// into an arbitrary-recipient send.
+test('isValidEmail rejects comma- and semicolon-separated multi-recipient strings', () => {
+  const { isValidEmail } = freshEmailModule();
+  assert.equal(isValidEmail('a@example.com,b@example.com'), false);
+  assert.equal(isValidEmail('a@example.com;b@example.com'), false);
+});
+
+test('isValidEmail rejects non-string and malformed values', () => {
+  const { isValidEmail } = freshEmailModule();
+  assert.equal(isValidEmail(undefined), false);
+  assert.equal(isValidEmail(''), false);
+  assert.equal(isValidEmail('not-an-email'), false);
+  assert.equal(isValidEmail('a@b'), false);
+});
+
+test('send() refuses to hand a malformed/multi-recipient address to the transporter', async () => {
+  delete process.env.SMTP_HOST;
+  const { sendVerificationEmail } = freshEmailModule();
+  await assert.rejects(sendVerificationEmail('a@example.com,attacker@evil.com', 'https://app.example.com/verify'));
+});
