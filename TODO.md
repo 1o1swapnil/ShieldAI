@@ -66,6 +66,24 @@ Punch list from the pre-pilot review. Not urgent enough to block anything curren
   plain unique index with one on `LOWER(email)`; `normalizeEmail()` in `server/src/email.js` is now applied before
   every lookup/write touching `users.email` in `auth.js`, `extension.js`, and `sso.js`. Covered by new tests in
   `server/test/email.test.js` and `server/test/extensionRegisterDevice.test.js`.
+- ~~SSO domain-match fix had a fallback-domain hole~~ — **done.** When the IdP gave no `email` claim, the fix fell
+  back to a constant `sso.local` domain — once any org had one such no-email SSO user, that org's domain gate was
+  permanently satisfied for any other no-email identity from the same shared IdP. `server/src/routes/sso.js` now
+  refuses first-time auto-provisioning outright when there's no real email claim. Covered by `server/test/sso.test.js`.
+- ~~No clickjacking protection on the admin console~~ — **done.** The dashboard has one-click, no-confirm
+  destructive actions (revoke device/session/install-token) and bearer-token auth gives no CSRF token to lean on.
+  `web/nginx.conf` now sends `X-Frame-Options: DENY` and `frame-ancestors 'none'`.
+- ~~App runtime connected to Postgres as the migrations' superuser~~ — **done.** A future SQL-injection-class bug
+  would have had full superuser blast radius instead of being contained to the app's own DML.
+  `server/scripts/init-app-role.sh` provisions a least-privilege `shieldai_app` role (via
+  `docker-entrypoint-initdb.d`, inheriting access to tables migrations create later through `ALTER DEFAULT
+  PRIVILEGES`); `server/src/db.js` now connects via `APP_DATABASE_URL`, falling back to `DATABASE_URL` for local
+  dev. Verified end-to-end against a real Postgres container (role creation, privilege inheritance, denial of
+  `CREATE TABLE`/`CREATE EXTENSION`, and a full register → `/health` flow under the scoped role).
+- ~~`POSTGRES_PASSWORD` silently defaulted to a weak, guessable value~~ — **done.** `docker-compose.yml` now
+  requires it (and the new `APP_DB_PASSWORD`) with no default, matching `JWT_SECRET`'s existing fail-fast pattern.
+  Also added `ALTER TABLE users ALTER COLUMN org_id SET NOT NULL` (`migrations/0013`) as cheap defense-in-depth —
+  every insert path already supplies it, but a future bug that omitted it should fail loudly, not silently.
 
 ## Known, already-documented gaps
 
