@@ -4,6 +4,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-07-28
+
 ### Added
 - Real SMTP sending (`nodemailer`) behind `sendVerificationEmail`, replacing
   the console-log-only stub. Unset `SMTP_HOST` (the default) still logs to
