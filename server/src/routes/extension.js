@@ -23,6 +23,12 @@ function issueDeviceToken(deviceId, orgId, userId) {
 // proving whoever registered the device controls that inbox. A returning
 // user whose email is already verified skips this — no need to re-prove
 // ownership on every reinstall.
+//
+// The polling ticket returned here and the verification ticket emailed to
+// the user are deliberately different tokens (device_poll vs
+// device_verification) — otherwise whoever calls this endpoint would hold
+// the exact credential that unlocks verification and could self-verify
+// without ever touching the inbox.
 router.post('/register-device', async (req, res) => {
   const { install_token, email } = req.body || {};
   if (!install_token || !email) {
@@ -73,11 +79,13 @@ router.post('/register-device', async (req, res) => {
     );
     const deviceId = deviceRows[0].id;
 
-    const ticket = signToken({ sub: deviceId, type: 'device_verification' }, { expiresIn: '1h' });
-    await sendVerificationEmail(email, `${WEB_ORIGIN}/?device_ticket=${encodeURIComponent(ticket)}`);
+    const verificationTicket = signToken({ sub: deviceId, type: 'device_verification' }, { expiresIn: '1h' });
+    await sendVerificationEmail(email, `${WEB_ORIGIN}/?device_ticket=${encodeURIComponent(verificationTicket)}`);
+
+    const pollTicket = signToken({ sub: deviceId, type: 'device_poll' }, { expiresIn: '1h' });
 
     await client.query('COMMIT');
-    res.status(201).json({ pending: true, ticket, message: `Check ${email} for a verification link.` });
+    res.status(201).json({ pending: true, ticket: pollTicket, message: `Check ${email} for a verification link.` });
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
@@ -129,8 +137,8 @@ router.get('/device-status', async (req, res) => {
   } catch {
     return res.status(401).json({ error: 'invalid or expired ticket' });
   }
-  if (payload.type !== 'device_verification') {
-    return res.status(401).json({ error: 'not a device verification ticket' });
+  if (payload.type !== 'device_poll') {
+    return res.status(401).json({ error: 'not a device polling ticket' });
   }
 
   const { rows } = await pool.query('SELECT org_id, user_id, verified_at FROM devices WHERE id = $1', [payload.sub]);

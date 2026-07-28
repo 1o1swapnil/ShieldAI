@@ -88,11 +88,29 @@ router.get('/callback', async (req, res) => {
       // org admins are provisioned via /auth/register or promoted manually.
       // email_verified_at is set immediately: the IdP already proved
       // ownership as part of the org's own directory.
+      //
+      // The IdP is a single shared deployment-wide config, not per-org, so
+      // org_id here is just whatever the caller passed to /login — anyone
+      // who can complete a real login could otherwise auto-provision into
+      // any org whose UUID they can see (e.g. printed in the web console).
+      // Gate first-time provisioning on the org already having a member
+      // with a matching email domain, so a new SSO identity can only land
+      // in an org it plausibly belongs to.
+      const email = claims.email || `${claims.sub}@sso.local`;
+      const domain = email.split('@')[1]?.toLowerCase();
+      const { rows: domainMatch } = await pool.query(
+        `SELECT 1 FROM users WHERE org_id = $1 AND LOWER(SPLIT_PART(email, '@', 2)) = $2 LIMIT 1`,
+        [ticket.orgId, domain]
+      );
+      if (!domainMatch.length) {
+        return res.status(403).json({ error: 'SSO auto-provisioning is not permitted for this organization' });
+      }
+
       const { rows } = await pool.query(
         `INSERT INTO users (org_id, email, role, auth_provider, sso_issuer, sso_subject, email_verified_at)
          VALUES ($1, $2, 'employee', 'sso', $3, $4, NOW())
          RETURNING id, org_id, email, role`,
-        [ticket.orgId, claims.email || `${claims.sub}@sso.local`, config.issuer, claims.sub]
+        [ticket.orgId, email, config.issuer, claims.sub]
       );
       user = rows[0];
     }

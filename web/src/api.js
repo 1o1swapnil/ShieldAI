@@ -88,6 +88,11 @@ export const getDiscoveredIntegrations = (orgId) => authFetch(`/integrations/dis
 export const reviewDiscoveredIntegration = (id, status) =>
   authFetch(`/integrations/discovered/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
 
+export const getUnverifiedTools = (orgId) => authFetch(`/tools/unverified?org_id=${orgId}`);
+
+export const reviewUnverifiedTool = (id, review_status) =>
+  authFetch(`/tools/unverified/${id}`, { method: 'PATCH', body: JSON.stringify({ review_status }) });
+
 export const getActivitySummary = (orgId) => authFetch(`/activity/summary?org_id=${orgId}`);
 
 export const getToolLibrary = () => authFetch('/tools/library');

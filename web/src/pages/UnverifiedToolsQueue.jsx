@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000';
+import { getUnverifiedTools, reviewUnverifiedTool } from '../api.js';
 
 // 2.6: each queue item shows its top-3 contributing features in plain
 // language — this is what actually builds admin trust in the ML layer.
@@ -10,23 +9,13 @@ export default function UnverifiedToolsQueue({ orgId }) {
 
   const load = () => {
     if (!orgId) return;
-    fetch(`${API_BASE}/tools/unverified?org_id=${orgId}`)
-      .then((r) => r.json())
-      .then(setItems)
-      .catch((e) => setError(e.message));
+    getUnverifiedTools(orgId).then(setItems).catch((e) => setError(e.message));
   };
 
   useEffect(load, [orgId]);
 
   const review = (id, review_status) => {
-    fetch(`${API_BASE}/tools/unverified/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ review_status }),
-    })
-      .then((r) => r.json())
-      .then(load)
-      .catch((e) => setError(e.message));
+    reviewUnverifiedTool(id, review_status).then(load).catch((e) => setError(e.message));
   };
 
   if (!orgId) return <p>Enter an org ID to load the review queue.</p>;

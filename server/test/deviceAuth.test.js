@@ -16,3 +16,19 @@ test('a regular user session token has no type=device marker', () => {
   const decoded = verifyToken(token);
   assert.notEqual(decoded.type, 'device');
 });
+
+// register-device hands the caller a device_poll ticket while a separate
+// device_verification ticket goes only into the emailed link — otherwise
+// the caller would hold the exact credential /verify-device accepts and
+// could self-verify without ever touching the inbox.
+test('a device_poll ticket is rejected by the device_verification check', () => {
+  const pollTicket = signToken({ sub: 'device-1', type: 'device_poll' }, { expiresIn: '1h' });
+  const decoded = verifyToken(pollTicket);
+  assert.notEqual(decoded.type, 'device_verification');
+});
+
+test('a device_verification ticket is rejected by the device_poll check', () => {
+  const verificationTicket = signToken({ sub: 'device-1', type: 'device_verification' }, { expiresIn: '1h' });
+  const decoded = verifyToken(verificationTicket);
+  assert.notEqual(decoded.type, 'device_poll');
+});
