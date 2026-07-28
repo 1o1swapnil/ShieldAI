@@ -1,10 +1,10 @@
 const express = require('express');
 const pool = require('../db');
-const { hashPassword, verifyPassword } = require('../auth/passwords');
+const { hashPassword, verifyPassword, fingerprintPasswordHash } = require('../auth/passwords');
 const { signToken, verifyToken } = require('../auth/jwt');
 const { requireAuth } = require('../auth/middleware');
 const { createSession } = require('../auth/sessions');
-const { sendVerificationEmail } = require('../email');
+const { sendVerificationEmail, sendPasswordResetEmail } = require('../email');
 const { createRateLimiter } = require('../rateLimit');
 
 const router = express.Router();
@@ -33,6 +33,12 @@ const loginLimiterByEmail = createRateLimiter({
   max: 8,
   keyGenerator: (req) => (req.body?.email || '').toLowerCase(),
   message: 'too many login attempts for this account, try again later',
+});
+const forgotPasswordLimiter = createRateLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  keyGenerator: (req) => req.ip,
+  message: 'too many password reset attempts from this address, try again later',
 });
 
 // Bootstraps a brand-new org + its first admin. There's no invite flow yet
@@ -132,6 +138,71 @@ router.post('/verify-email', async (req, res) => {
   if (!rows.length) return res.status(404).json({ error: 'account not found' });
 
   const user = rows[0];
+  const sid = await createSession(pool, { userId: user.id, orgId: user.org_id });
+  const token = signToken({ sub: user.id, sid, orgId: user.org_id, role: user.role });
+  res.json({ token, user });
+});
+
+// Always returns the same generic response, whether or not the email is
+// registered or even uses password auth (SSO/device accounts have no
+// password to reset) — the response itself must never leak which emails
+// exist in the system.
+router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
+  const { email } = req.body || {};
+  if (!email) return res.status(400).json({ error: 'email is required' });
+
+  const { rows } = await pool.query(
+    "SELECT id, password_hash FROM users WHERE email = $1 AND auth_provider = 'password'",
+    [email]
+  );
+  if (rows.length) {
+    const pwFingerprint = fingerprintPasswordHash(rows[0].password_hash);
+    const ticket = signToken({ sub: rows[0].id, email, pwFingerprint, type: 'password_reset' }, { expiresIn: '1h' });
+    await sendPasswordResetEmail(email, `${WEB_ORIGIN}/?reset_ticket=${encodeURIComponent(ticket)}`);
+  }
+
+  res.json({ message: 'If an account with that email exists, a password reset link has been sent.' });
+});
+
+// The link click sets the new password and logs the user in immediately —
+// same "click IS the login" pattern as /verify-email. A password reset
+// means "I forgot it" at best and "this account may be compromised" at
+// worst, so every other active session gets revoked at the same time.
+router.post('/reset-password', async (req, res) => {
+  const { ticket, password } = req.body || {};
+  if (!ticket || !password) return res.status(400).json({ error: 'ticket and password are required' });
+  if (password.length < 8) return res.status(400).json({ error: 'password must be at least 8 characters' });
+
+  let payload;
+  try {
+    payload = verifyToken(ticket);
+  } catch {
+    return res.status(401).json({ error: 'invalid or expired reset link' });
+  }
+  if (payload.type !== 'password_reset') {
+    return res.status(401).json({ error: 'not a password reset ticket' });
+  }
+
+  const { rows: existing } = await pool.query('SELECT password_hash FROM users WHERE id = $1 AND email = $2', [
+    payload.sub,
+    payload.email,
+  ]);
+  if (!existing.length) return res.status(404).json({ error: 'account not found' });
+  // The password already changed since this ticket was issued (a prior use
+  // of it, or a separate reset) — reject the replay instead of allowing
+  // the same emailed link to reset the password over and over.
+  if (fingerprintPasswordHash(existing[0].password_hash) !== payload.pwFingerprint) {
+    return res.status(401).json({ error: 'invalid or expired reset link' });
+  }
+
+  const { rows } = await pool.query(
+    `UPDATE users SET password_hash = $1 WHERE id = $2 AND email = $3 RETURNING id, org_id, email, role`,
+    [hashPassword(password), payload.sub, payload.email]
+  );
+  const user = rows[0];
+
+  await pool.query('UPDATE sessions SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL', [user.id]);
+
   const sid = await createSession(pool, { userId: user.id, orgId: user.org_id });
   const token = signToken({ sub: user.id, sid, orgId: user.org_id, role: user.role });
   res.json({ token, user });

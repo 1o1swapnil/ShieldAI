@@ -17,18 +17,34 @@ function getTransporter() {
   return transporter;
 }
 
-async function sendVerificationEmail(to, link) {
+async function send({ to, subject, text }) {
   if (!process.env.SMTP_HOST) {
-    console.log(`[dev-mailer] verification link for ${to}: ${link}`);
+    console.log(`[dev-mailer] ${subject} for ${to}: ${text}`);
     return;
   }
 
   await getTransporter().sendMail({
     from: process.env.SMTP_FROM || 'ShieldAI <no-reply@shieldai.local>',
     to,
+    subject,
+    text,
+  });
+}
+
+async function sendVerificationEmail(to, link) {
+  await send({
+    to,
     subject: 'Verify your ShieldAI email',
     text: `Click the link below to verify your email address:\n\n${link}\n\nIf you didn't request this, you can safely ignore this email.`,
   });
 }
 
-module.exports = { sendVerificationEmail, getTransporter };
+async function sendPasswordResetEmail(to, link) {
+  await send({
+    to,
+    subject: 'Reset your ShieldAI password',
+    text: `Click the link below to choose a new password. This link expires in 1 hour and can only be used once:\n\n${link}\n\nIf you didn't request this, you can safely ignore this email — your password won't change.`,
+  });
+}
+
+module.exports = { sendVerificationEmail, sendPasswordResetEmail, getTransporter };

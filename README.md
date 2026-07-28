@@ -72,7 +72,14 @@ npm start   # listens on PORT (default 3000)
 
 Set `JWT_SECRET` in production (an ephemeral one is generated per-process otherwise — fine for local dev, invalidates sessions on every restart). For SSO, set `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URI` (any standards-compliant OIDC provider — Okta, Azure AD, etc.) and `WEB_ORIGIN` (used for both the SSO callback redirect and CORS — set it to the web app's real origin; comma-separate for multiple).
 
-`/auth/login` and `/auth/register` are rate-limited by `req.ip` (per-IP) and, for login, also by email. Behind a real reverse proxy/load balancer, call `app.set('trust proxy', ...)` in `src/index.js` with the correct hop count — otherwise every client behind the proxy shares Express's default IP (the proxy's own address) and the per-IP limiter becomes either useless or a shared bucket for everyone.
+`/auth/login`, `/auth/register`, and `/auth/forgot-password` are rate-limited by `req.ip` (per-IP), login also by email. Behind a real reverse proxy/load balancer, call `app.set('trust proxy', ...)` in `src/index.js` with the correct hop count — otherwise every client behind the proxy shares Express's default IP (the proxy's own address) and the per-IP limiter becomes either useless or a shared bucket for everyone.
+
+Password reset (`POST /auth/forgot-password` → `POST /auth/reset-password`): the forgot-password response is always
+identical regardless of whether the email exists or even uses password auth (SSO/device accounts have no password) —
+it never leaks which emails are registered. The reset ticket is single-use: it's bound to a fingerprint of the
+current password hash, so a replayed link (e.g. dug out of an old email) is rejected once the password has actually
+changed. Resetting revokes every other active session for that account and logs the user in immediately with a
+fresh one, same "click IS the login" pattern as email verification.
 
 Email (`src/email.js`, via `nodemailer`): unset `SMTP_HOST` (the default) logs the verification link to stdout instead of sending — no real mailbox needed for local dev/tests. Set `SMTP_HOST`, `SMTP_PORT` (default 587), `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, and `SMTP_SECURE=true` if your provider uses implicit TLS (port 465) rather than STARTTLS, to send for real — works with any standard SMTP provider (SES, SendGrid, Postmark, etc.). Registration is transactional: if the email fails to send, the org/user (or device) rows roll back entirely instead of leaving a stuck half-registered account behind.
 
@@ -144,6 +151,7 @@ manifests), and log shipping/monitoring — this gets a pilot running, not a har
 | Route | Purpose |
 |---|---|
 | `POST /auth/register`, `POST /auth/login`, `POST /auth/verify-email`, `GET /auth/me`, `POST /auth/logout` | password auth + JWT sessions + email verification (Section 7) |
+| `POST /auth/forgot-password`, `POST /auth/reset-password` | password reset — single-use ticket, revokes other sessions |
 | `GET /auth/sso/login`, `GET /auth/sso/callback` | generic OIDC SSO login — Okta/Azure AD/any compliant IdP (Section 6) |
 | `GET /auth/sessions`, `POST /auth/sessions/:id/revoke` | self-service session management ("log out other devices") |
 | `POST/GET /org/:orgId/install-tokens`, `.../install-tokens/:id/revoke`, `GET /org/:orgId/devices`, `.../devices/:id/revoke` | admin-issued device credentials (Section 7) |

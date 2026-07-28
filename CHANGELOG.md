@@ -4,6 +4,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Password reset: `POST /auth/forgot-password` (always returns an identical
+  generic response regardless of whether the email exists or even uses
+  password auth — never leaks which emails are registered) and
+  `POST /auth/reset-password`. The reset ticket is single-use: it's bound
+  to a fingerprint of the current password hash (`fingerprintPasswordHash`
+  in `server/src/auth/passwords.js`), so a replayed link is rejected once
+  the password has actually changed — no separate "used tickets" table
+  needed. Resetting revokes every other active session for the account
+  (same reasoning as device revocation: a reset means "I forgot it" at
+  best and "this account may be compromised" at worst) and logs the user
+  in immediately with a fresh session, same "click IS the login" pattern
+  as email verification. Web app: a "Forgot password?" link on the login
+  page and a `?reset_ticket=` landing page (`ResetPassword.jsx`).
+
+### Verified
+- Live, against a real throwaway Postgres: the no-enumeration property
+  (identical response for a real account, a nonexistent email, and by
+  construction an SSO-only account); a full reset cycle where the prior
+  session dies immediately, the old password stops working, the new one
+  works, and replaying the same reset ticket a second time is rejected.
+
 ## [1.0.0] - 2026-07-28
 
 First pilot-ready release: all four sections of the v1.1 design addendum, all v1.0 base infrastructure (activity

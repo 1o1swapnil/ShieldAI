@@ -15,4 +15,13 @@ function verifyPassword(password, stored) {
   return hashBuffer.length === suppliedBuffer.length && crypto.timingSafeEqual(hashBuffer, suppliedBuffer);
 }
 
-module.exports = { hashPassword, verifyPassword };
+// A short, non-reversible fingerprint of the current password_hash,
+// embedded in a password-reset ticket so it's single-use: once the
+// password actually changes, the fingerprint stops matching and a
+// replayed ticket (e.g. an old reset email dug up later) is rejected —
+// no separate "used tickets" table needed.
+function fingerprintPasswordHash(hash) {
+  return crypto.createHash('sha256').update(hash || '').digest('hex').slice(0, 16);
+}
+
+module.exports = { hashPassword, verifyPassword, fingerprintPasswordHash };

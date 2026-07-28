@@ -11,6 +11,7 @@ import Devices from './pages/Devices.jsx';
 import Sessions from './pages/Sessions.jsx';
 import Login from './pages/Login.jsx';
 import VerifyDevice from './pages/VerifyDevice.jsx';
+import ResetPassword from './pages/ResetPassword.jsx';
 import { getMe, verifyEmail, logout } from './api.js';
 import { getToken, setToken, clearToken } from './auth.js';
 
@@ -20,6 +21,7 @@ export default function App() {
   const [checkedAuth, setCheckedAuth] = useState(false);
   const [verifyError, setVerifyError] = useState(null);
   const [deviceTicket] = useState(() => new URLSearchParams(window.location.search).get('device_ticket'));
+  const [resetTicket, setResetTicket] = useState(() => new URLSearchParams(window.location.search).get('reset_ticket'));
 
   const refreshUser = () => {
     getMe()
@@ -32,7 +34,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (deviceTicket) return; // handled entirely by <VerifyDevice> below, no session needed
+    if (deviceTicket || resetTicket) return; // handled entirely by their own components below, no session needed yet
 
     const params = new URLSearchParams(window.location.search);
 
@@ -66,6 +68,18 @@ export default function App() {
   }, []);
 
   if (deviceTicket) return <VerifyDevice ticket={deviceTicket} />;
+  if (resetTicket) {
+    return (
+      <ResetPassword
+        ticket={resetTicket}
+        onComplete={() => {
+          window.history.replaceState({}, '', window.location.pathname);
+          setResetTicket(null);
+          refreshUser();
+        }}
+      />
+    );
+  }
   if (!checkedAuth) return null;
   if (!user) return <Login onAuthenticated={refreshUser} error={verifyError} />;
 

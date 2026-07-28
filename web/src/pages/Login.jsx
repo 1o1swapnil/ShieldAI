@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { login, register } from '../api.js';
+import { login, register, forgotPassword } from '../api.js';
 import { setToken } from '../auth.js';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000';
 
 export default function Login({ onAuthenticated, error: externalError }) {
-  const [mode, setMode] = useState('login'); // 'login' | 'register'
+  const [mode, setMode] = useState('login'); // 'login' | 'register' | 'forgot'
   const [form, setForm] = useState({ org_name: '', email: '', password: '' });
   const [error, setError] = useState(null);
   const [pendingMessage, setPendingMessage] = useState(null);
@@ -20,8 +20,11 @@ export default function Login({ onAuthenticated, error: externalError }) {
         const result = await login(form.email, form.password);
         setToken(result.token);
         onAuthenticated();
-      } else {
+      } else if (mode === 'register') {
         const result = await register(form.org_name, form.email, form.password);
+        setPendingMessage(result.message);
+      } else {
+        const result = await forgotPassword(form.email);
         setPendingMessage(result.message);
       }
     } catch (err) {
@@ -54,14 +57,48 @@ export default function Login({ onAuthenticated, error: externalError }) {
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
           />
-          <input
-            type="password"
-            placeholder="Password"
-            value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
-          />
-          <button type="submit">{mode === 'login' ? 'Log in' : 'Create org + admin account'}</button>
+          {mode !== 'forgot' && (
+            <input
+              type="password"
+              placeholder="Password"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+            />
+          )}
+          <button type="submit">
+            {mode === 'login' ? 'Log in' : mode === 'register' ? 'Create org + admin account' : 'Send reset link'}
+          </button>
         </form>
+      )}
+
+      {mode === 'login' && !pendingMessage && (
+        <p style={{ marginTop: 8 }}>
+          <button
+            type="button"
+            onClick={() => {
+              setMode('forgot');
+              setError(null);
+            }}
+            style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', textDecoration: 'underline', cursor: 'pointer' }}
+          >
+            Forgot password?
+          </button>
+        </p>
+      )}
+      {mode === 'forgot' && (
+        <p style={{ marginTop: 8 }}>
+          <button
+            type="button"
+            onClick={() => {
+              setMode('login');
+              setPendingMessage(null);
+              setError(null);
+            }}
+            style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', textDecoration: 'underline', cursor: 'pointer' }}
+          >
+            Back to log in
+          </button>
+        </p>
       )}
 
       {shownError && <p style={{ color: '#a33' }}>{shownError}</p>}

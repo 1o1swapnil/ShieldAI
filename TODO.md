@@ -11,9 +11,10 @@ Punch list from the pre-pilot review. Not urgent enough to block anything curren
   allow `chrome-extension://` origins; bearer-token auth means CORS isn't the security boundary there anyway).
   Verified live: a real unpacked extension loaded in headless Chromium successfully read `config.json` and called
   the live API end to end.
-- **No password reset / account recovery.** An admin locked out of `/auth/login` has no path back except a raw DB
-  edit. Needs a `POST /auth/forgot-password` + `POST /auth/reset-password` pair, same ticket pattern as email
-  verification (`server/src/routes/auth.js`, `server/src/email.js`).
+- ~~No password reset / account recovery~~ — **done.** `POST /auth/forgot-password` (no-enumeration: identical
+  response whether or not the email exists or uses password auth) + `POST /auth/reset-password` (single-use ticket
+  bound to a password-hash fingerprint, revokes every other session on reset, logs in immediately with a fresh one).
+  Verified live end to end including the replay-rejection and no-enumeration properties.
 - **No `/health` endpoint.** `docker-compose.yml` only healthchecks Postgres — the `server`/`web` containers have
   none, so a load balancer/orchestrator can't tell if they're actually up. Add `GET /health` (server) and a static
   200 route (nginx already serves index.html, but a dedicated health path avoids conflating "nginx is up" with

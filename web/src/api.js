@@ -55,6 +55,20 @@ export const verifyDevice = (ticket) =>
     body: JSON.stringify({ ticket }),
   }).then(json);
 
+export const forgotPassword = (email) =>
+  fetch(`${API_BASE}/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  }).then(json);
+
+export const resetPassword = (ticket, password) =>
+  fetch(`${API_BASE}/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ticket, password }),
+  }).then(json);
+
 // Public — no auth required (Section 4.1/3.2 are meant to be readable
 // without a logged-in session).
 export const getNotice = () => fetch(`${API_BASE}/consent/notice`).then(json);
