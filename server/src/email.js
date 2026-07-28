@@ -1,14 +1,34 @@
-// No real mail provider is wired up. Logs the verification link to stdout
-// instead of pretending to send it — the same pattern most frameworks use
-// for a dev-mode mailer (Rails' letter_opener, Django's console backend).
-// Swap the body of sendVerificationEmail for a real provider (SES,
-// SendGrid, Postmark, ...) before a real pilot; the SMTP_HOST check below
-// fails loudly instead of silently no-op'ing if someone assumes it's wired.
-async function sendVerificationEmail(to, link) {
-  if (process.env.SMTP_HOST) {
-    throw new Error('SMTP_HOST is set but real email sending is not implemented — wire up a provider in src/email.js');
+const nodemailer = require('nodemailer');
+
+// No SMTP_HOST configured -> logs the link to stdout instead of sending,
+// same pattern most frameworks use for a dev-mode mailer (Rails'
+// letter_opener, Django's console backend). Set SMTP_HOST (+ SMTP_PORT,
+// SMTP_USER, SMTP_PASS, SMTP_FROM) to send for real.
+let transporter = null;
+function getTransporter() {
+  if (!transporter) {
+    transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT || 587),
+      secure: process.env.SMTP_SECURE === 'true', // true for port 465, false (STARTTLS) otherwise
+      auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
+    });
   }
-  console.log(`[dev-mailer] verification link for ${to}: ${link}`);
+  return transporter;
 }
 
-module.exports = { sendVerificationEmail };
+async function sendVerificationEmail(to, link) {
+  if (!process.env.SMTP_HOST) {
+    console.log(`[dev-mailer] verification link for ${to}: ${link}`);
+    return;
+  }
+
+  await getTransporter().sendMail({
+    from: process.env.SMTP_FROM || 'ShieldAI <no-reply@shieldai.local>',
+    to,
+    subject: 'Verify your ShieldAI email',
+    text: `Click the link below to verify your email address:\n\n${link}\n\nIf you didn't request this, you can safely ignore this email.`,
+  });
+}
+
+module.exports = { sendVerificationEmail, getTransporter };

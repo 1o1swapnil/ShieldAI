@@ -51,19 +51,37 @@ router.post('/register', registerLimiter, async (req, res) => {
   const { rows: existing } = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
   if (existing.length) return res.status(409).json({ error: 'email already registered' });
 
-  const { rows: orgRows } = await pool.query('INSERT INTO organizations (name) VALUES ($1) RETURNING id', [org_name]);
-  const orgId = orgRows[0].id;
+  // Transactional: if the verification email fails to send, roll back the
+  // org/user creation entirely. Without this, a bad SMTP config leaves a
+  // half-registered account behind with no working verification email and
+  // no way to retry — the next attempt just 409s on "already registered."
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
 
-  const { rows: userRows } = await pool.query(
-    `INSERT INTO users (org_id, email, password_hash, role, auth_provider)
-     VALUES ($1, $2, $3, 'admin', 'password')
-     RETURNING id`,
-    [orgId, email, hashPassword(password)]
-  );
-  const userId = userRows[0].id;
+    const { rows: orgRows } = await client.query('INSERT INTO organizations (name) VALUES ($1) RETURNING id', [
+      org_name,
+    ]);
+    const orgId = orgRows[0].id;
 
-  const ticket = signToken({ sub: userId, email, type: 'email_verification' }, { expiresIn: '24h' });
-  await sendVerificationEmail(email, `${WEB_ORIGIN}/verify-email?ticket=${encodeURIComponent(ticket)}`);
+    const { rows: userRows } = await client.query(
+      `INSERT INTO users (org_id, email, password_hash, role, auth_provider)
+       VALUES ($1, $2, $3, 'admin', 'password')
+       RETURNING id`,
+      [orgId, email, hashPassword(password)]
+    );
+    const userId = userRows[0].id;
+
+    const ticket = signToken({ sub: userId, email, type: 'email_verification' }, { expiresIn: '24h' });
+    await sendVerificationEmail(email, `${WEB_ORIGIN}/verify-email?ticket=${encodeURIComponent(ticket)}`);
+
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 
   res.status(201).json({ pending: true, message: 'Check your email to verify your account before logging in.' });
 });

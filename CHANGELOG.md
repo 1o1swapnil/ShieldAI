@@ -4,6 +4,32 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Real SMTP sending (`nodemailer`) behind `sendVerificationEmail`, replacing
+  the console-log-only stub. Unset `SMTP_HOST` (the default) still logs to
+  stdout for local dev/tests — no real mailbox needed. Set `SMTP_HOST`,
+  `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, `SMTP_SECURE` to send
+  for real, against any standard SMTP provider. Wired into
+  `docker-compose.yml` and both `.env.example` files.
+
+### Fixed
+- Registration (`/auth/register` and `/extension/register-device`) is now
+  transactional. Previously, if the verification email failed to send
+  after the org/user (or device) rows were already committed, the caller
+  got a 500 but the account existed anyway — retrying just hit "email
+  already registered" with no way to get a working verification link.
+  Found via live testing with a deliberately broken SMTP config; both
+  routes now roll back entirely on a failed send, so retrying with the
+  same email works cleanly once the underlying problem is fixed.
+
+### Verified
+- Live, against a real (Ethereal test) SMTP server: an actual email was
+  sent, accepted (`250 Accepted`), and delivered with the correct
+  subject/recipient — not just "didn't throw." A deliberately broken SMTP
+  config surfaced a genuine `535 Authentication failed` error and a clean
+  500, and confirmed the fix: no orphaned org/user was left behind, and
+  retrying the same email after restoring SMTP succeeded.
+
 ## [0.8.0] - 2026-07-28
 
 ### Added

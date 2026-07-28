@@ -37,35 +37,53 @@ router.post('/register-device', async (req, res) => {
   const { id: installTokenId, org_id: orgId } = tokenRows[0];
 
   const { rows: userRows } = await pool.query('SELECT id, email_verified_at FROM users WHERE email = $1', [email]);
-  let userId = userRows[0]?.id;
   const alreadyVerified = Boolean(userRows[0]?.email_verified_at);
 
-  if (!userId) {
-    const { rows: created } = await pool.query(
-      `INSERT INTO users (org_id, email, role, auth_provider) VALUES ($1, $2, 'employee', 'device') RETURNING id`,
-      [orgId, email]
-    );
-    userId = created[0].id;
-  }
+  // Transactional: if the verification email fails to send, roll back the
+  // user/device rows entirely instead of leaving an orphaned unverified
+  // device behind (same class of bug as /auth/register — fix once, same
+  // pattern).
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
 
-  if (alreadyVerified) {
-    const { rows: deviceRows } = await pool.query(
-      `INSERT INTO devices (org_id, user_id, install_token_id, verified_at) VALUES ($1, $2, $3, NOW()) RETURNING id`,
+    let userId = userRows[0]?.id;
+    if (!userId) {
+      const { rows: created } = await client.query(
+        `INSERT INTO users (org_id, email, role, auth_provider) VALUES ($1, $2, 'employee', 'device') RETURNING id`,
+        [orgId, email]
+      );
+      userId = created[0].id;
+    }
+
+    if (alreadyVerified) {
+      const { rows: deviceRows } = await client.query(
+        `INSERT INTO devices (org_id, user_id, install_token_id, verified_at) VALUES ($1, $2, $3, NOW()) RETURNING id`,
+        [orgId, userId, installTokenId]
+      );
+      await client.query('COMMIT');
+      return res
+        .status(201)
+        .json({ device_token: issueDeviceToken(deviceRows[0].id, orgId, userId), org_id: orgId, user_id: userId });
+    }
+
+    const { rows: deviceRows } = await client.query(
+      `INSERT INTO devices (org_id, user_id, install_token_id) VALUES ($1, $2, $3) RETURNING id`,
       [orgId, userId, installTokenId]
     );
-    return res.status(201).json({ device_token: issueDeviceToken(deviceRows[0].id, orgId, userId), org_id: orgId, user_id: userId });
+    const deviceId = deviceRows[0].id;
+
+    const ticket = signToken({ sub: deviceId, type: 'device_verification' }, { expiresIn: '1h' });
+    await sendVerificationEmail(email, `${WEB_ORIGIN}/?device_ticket=${encodeURIComponent(ticket)}`);
+
+    await client.query('COMMIT');
+    res.status(201).json({ pending: true, ticket, message: `Check ${email} for a verification link.` });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
   }
-
-  const { rows: deviceRows } = await pool.query(
-    `INSERT INTO devices (org_id, user_id, install_token_id) VALUES ($1, $2, $3) RETURNING id`,
-    [orgId, userId, installTokenId]
-  );
-  const deviceId = deviceRows[0].id;
-
-  const ticket = signToken({ sub: deviceId, type: 'device_verification' }, { expiresIn: '1h' });
-  await sendVerificationEmail(email, `${WEB_ORIGIN}/?device_ticket=${encodeURIComponent(ticket)}`);
-
-  res.status(201).json({ pending: true, ticket, message: `Check ${email} for a verification link.` });
 });
 
 // The link the verification email points to (opened in a normal browser

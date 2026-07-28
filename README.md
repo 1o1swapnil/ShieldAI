@@ -17,6 +17,7 @@ Also includes v1.0 base pieces the addendum assumed already existed:
 - CORS, and email verification before an account or a device gets a working credential — closes the "type any email, get attributed to it" identity gap
 - Rate limiting on `/auth/login` (per-IP and per-email) and `/auth/register` (per-IP) — closes the open brute-force/credential-stuffing gap
 - Revocation for user-session JWTs, mirroring the device-token model: a `sessions` row per login, checked live on every request, so a leaked/compromised session can be killed immediately instead of surviving its full 24h expiry
+- A real SMTP provider behind the verification mailer (`nodemailer`), replacing the console-log-only stub
 
 ## Structure
 
@@ -73,7 +74,7 @@ Set `JWT_SECRET` in production (an ephemeral one is generated per-process otherw
 
 `/auth/login` and `/auth/register` are rate-limited by `req.ip` (per-IP) and, for login, also by email. Behind a real reverse proxy/load balancer, call `app.set('trust proxy', ...)` in `src/index.js` with the correct hop count — otherwise every client behind the proxy shares Express's default IP (the proxy's own address) and the per-IP limiter becomes either useless or a shared bucket for everyone.
 
-No real mail provider is wired up (`src/email.js`) — verification links are logged to stdout in dev. Set `SMTP_HOST` only once you've actually implemented sending there; until then it just fails loudly instead of silently pretending to send.
+Email (`src/email.js`, via `nodemailer`): unset `SMTP_HOST` (the default) logs the verification link to stdout instead of sending — no real mailbox needed for local dev/tests. Set `SMTP_HOST`, `SMTP_PORT` (default 587), `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, and `SMTP_SECURE=true` if your provider uses implicit TLS (port 465) rather than STARTTLS, to send for real — works with any standard SMTP provider (SES, SendGrid, Postmark, etc.). Registration is transactional: if the email fails to send, the org/user (or device) rows roll back entirely instead of leaving a stuck half-registered account behind.
 
 `0001_base.sql`'s `organizations`/`users` stub has since grown real auth columns (0008) — the rest of the real v1.0 base schema (e.g. a proper invite flow) still isn't part of this addendum.
 
