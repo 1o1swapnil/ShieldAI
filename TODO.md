@@ -15,10 +15,13 @@ Punch list from the pre-pilot review. Not urgent enough to block anything curren
   response whether or not the email exists or uses password auth) + `POST /auth/reset-password` (single-use ticket
   bound to a password-hash fingerprint, revokes every other session on reset, logs in immediately with a fresh one).
   Verified live end to end including the replay-rejection and no-enumeration properties.
-- **No `/health` endpoint.** `docker-compose.yml` only healthchecks Postgres — the `server`/`web` containers have
-  none, so a load balancer/orchestrator can't tell if they're actually up. Add `GET /health` (server) and a static
-  200 route (nginx already serves index.html, but a dedicated health path avoids conflating "nginx is up" with
-  "app is usable").
+- ~~No `/health` endpoint~~ — **done.** `GET /health` (`server/src/routes/health.js`) round-trips a `SELECT 1`
+  against Postgres and returns 200/`{"status":"ok"}` or 503/`{"status":"error"}` — a live-but-DB-unreachable
+  server now reports unhealthy instead of looking fine. `web/nginx.conf` gets a dedicated `/health` route (plain
+  200 "ok") distinct from the SPA fallback, which always 200s even on a broken build. Both wired into
+  `docker-compose.yml` healthchecks (`server` via `node -e` HTTP GET, `web` via `wget`), with `web` now
+  `depends_on: server: condition: service_healthy`. Verified: unit tests cover both branches by stubbing
+  `pool.query`; the built `web` image was run standalone and its `/health` route confirmed live (200 "ok").
 
 ## Known, already-documented gaps
 
