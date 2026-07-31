@@ -151,6 +151,22 @@ use instead of the migrations' superuser role — contains the blast radius of a
 exactly the DML the app issues. Note this only runs on a *fresh* volume; an existing `postgres_data` volume from
 before this change needs the same `CREATE ROLE`/`GRANT` statements applied manually once.
 
+### Backup / restore
+
+```
+server/scripts/backup.sh                              # writes server/backups/shieldai-<timestamp>.dump
+server/scripts/restore.sh server/backups/shieldai-<timestamp>.dump
+```
+
+Both run `pg_dump`/`pg_restore` *inside* the `postgres` container (via `docker compose exec`), not a host-installed
+client — a host client on a different Postgres major version can produce or expect a dump format the actual server
+version doesn't, so this keeps the tool version pinned to whatever `docker-compose.yml` runs. `restore.sh` drops
+and recreates every object first (`--clean --if-exists`), so the target ends up matching the dump exactly rather
+than merging with what's already there — it prompts for confirmation unless you pass `--yes`. Needs the same
+superuser connection migrations use (not the least-privilege `shieldai_app` role, which lacks `CREATE`).
+`server/backups/` is gitignored; ship dumps to real off-box storage yourselves, this only automates the
+dump/restore commands, not retention or transport.
+
 `web/Dockerfile` builds the Vite app and serves it via nginx with an SPA fallback (`nginx.conf`) — every path
 (`/`, `/verify-email`, etc.) serves `index.html` since routing is entirely client-side via query params, not
 real paths. `nginx.conf` also sends `X-Frame-Options: DENY` and `frame-ancestors 'none'` — the dashboard has
