@@ -117,9 +117,11 @@ Punch list from the pre-pilot review. Not urgent enough to block anything curren
 - No admin invite flow — can't add a second admin to an org without touching the DB directly.
 - No unified admin audit log — revocation/review actions are scattered across `reviewed_by`/`revoked_at` columns
   per table (devices, sessions, unverified_tools_queue, discovered_integrations), not one place to look.
-- CI only runs unit tests (`.github/workflows/ci.yml`) — every "live verification" done during development was
-  manual, in throwaway Postgres sessions. Nothing in CI would catch a regression in, say, the transactional-
-  registration fix or CORS if a future change broke it. Consider adding a DB-backed integration test job (Postgres
-  service container + a scripted smoke test against a running server).
+- ~~CI only runs unit tests~~ — **done.** Added an `integration-test` job (`.github/workflows/ci.yml`) with a real
+  Postgres service container: runs `server/scripts/migrate.js` against it, starts the real server, then runs
+  `server/scripts/smoke-test.js` — register (the transactional org+user+email path) → rejected pre-verification
+  login → verify (using the real ticket read off the dev-mailer console log, same as a human reading it from
+  their inbox) → login → an authenticated org-scoped request → a `chrome-extension://` CORS check. Verified
+  locally end-to-end against a real Postgres container before wiring into CI.
 - Rate limiter (`server/src/rateLimit.js`) is in-memory, single-process — fine for one instance, would need a
   shared store (Redis) if this ever runs behind a load balancer with multiple server replicas.
