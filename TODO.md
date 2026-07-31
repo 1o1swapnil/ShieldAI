@@ -101,8 +101,6 @@ Punch list from the pre-pilot review. Not urgent enough to block anything curren
   published SHA-256, not a secret or a signature, so a tampered/backdoored build can just self-report the real
   hash and still be marked verified. Closing this for real needs code signing / attestation, not a small patch —
   tracked here rather than fixed ad hoc.
-- `extension/rules.json` hardcodes 2 example domains (chatgpt.com, claude.ai) instead of the real 150+ tool library
-  (`server/seeds/ai_tools.json`) — needs a build step generating rules.json from the library.
 - SSO OAuth-grant *discovery* connector (pulling grants from Okta/Azure's admin API) is still a manual-input
   endpoint (`POST /integrations/scan` takes grants as body params) — no live connector to the IdP's management API.
 - Native-app companion (Section 1.3) has a DB table (`native_app_detections`) and endpoint
@@ -145,5 +143,12 @@ Punch list from the pre-pilot review. Not urgent enough to block anything curren
   login → verify (using the real ticket read off the dev-mailer console log, same as a human reading it from
   their inbox) → login → an authenticated org-scoped request → a `chrome-extension://` CORS check. Verified
   locally end-to-end against a real Postgres container before wiring into CI.
-- Rate limiter (`server/src/rateLimit.js`) is in-memory, single-process — fine for one instance, would need a
-  shared store (Redis) if this ever runs behind a load balancer with multiple server replicas.
+- ~~Rate limiter is in-memory, single-process~~ — **done.** `createRateLimiter()` now switches to a Redis-backed
+  store (`INCR`+`PEXPIRE` per window) when `REDIS_URL` is set, instead of each replica's own `Map` giving every
+  replica an independent quota. Fails open on a Redis error rather than taking auth down entirely during an
+  outage. `docker-compose.yml` intentionally left untouched — it only ever runs one server replica, so wiring in a
+  Redis service there would just be dead weight; `REDIS_URL` is there for whoever actually scales to multiple
+  replicas. Covered by `server/test/rateLimit.test.js` (fake-client injection); verified live against a real Redis
+  container with **two independent server processes** sharing it — split 5 registration attempts across both
+  processes (all succeed, same per-IP quota), then confirmed the 6th and 7th (one per process) both 429 — proving
+  the quota is genuinely shared, not per-process.
