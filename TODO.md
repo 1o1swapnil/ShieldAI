@@ -132,8 +132,13 @@ Punch list from the pre-pilot review. Not urgent enough to block anything curren
   accept → login → confirmed the employee gets 403 on an admin-only route → confirmed re-inviting the now-registered
   email 409s). No invite-tracking/revocation UI (nothing to list — tickets are stateless) — a real invites table is
   the upgrade path if that visibility turns out to matter.
-- No unified admin audit log — revocation/review actions are scattered across `reviewed_by`/`revoked_at` columns
-  per table (devices, sessions, unverified_tools_queue, discovered_integrations), not one place to look.
+- ~~No unified admin audit log~~ — **done.** New `audit_log` table (`migrations/0014_audit_log.sql`) + a shared
+  `logAudit()` helper (`server/src/auditLog.js`), wired into every admin grant/revoke/review action: install-token
+  create/revoke, device revoke, session revoke, unverified-tool review, discovered-integration review, and invite
+  creation. `GET /org/:orgId/audit-log` (admin) reads it back newest-first with the actor's email joined in; web
+  gets an `Audit Log` tab (`web/src/pages/AuditLog.jsx`). Covered by `server/test/auditLog.test.js`; verified live
+  end to end against a real server + Postgres (create + revoke an install token, send an invite, then confirmed all
+  three showed up in the audit log in the right order with the right actor/metadata).
 - ~~CI only runs unit tests~~ — **done.** Added an `integration-test` job (`.github/workflows/ci.yml`) with a real
   Postgres service container: runs `server/scripts/migrate.js` against it, starts the real server, then runs
   `server/scripts/smoke-test.js` — register (the transactional org+user+email path) → rejected pre-verification
