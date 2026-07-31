@@ -43,6 +43,9 @@ jobs:
           for f in extension/manifest.json extension/rules.json extension/build-info.json extension/config.json; do
             node -e "JSON.parse(require('fs').readFileSync('$f', 'utf8'))" && echo "OK: $f"
           done
+      - name: Check rules.json / manifest.json match the tool library
+        run: node generate-rules.js --check
+        working-directory: extension
 
   docker-build:
     runs-on: ubuntu-latest
