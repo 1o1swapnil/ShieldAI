@@ -4,6 +4,7 @@ const { signToken } = require('../auth/jwt');
 const { requireAuth, requireAdmin, requireOrgMatch } = require('../auth/middleware');
 const { sendInviteEmail, isValidEmail, normalizeEmail } = require('../email');
 const { createRateLimiter } = require('../rateLimit');
+const { logAudit } = require('../auditLog');
 
 const router = express.Router();
 
@@ -42,6 +43,13 @@ router.post('/:orgId/invites', requireAuth, requireAdmin, requireOrgMatch(), inv
     { expiresIn: '7d' }
   );
   await sendInviteEmail(email, `${WEB_ORIGIN}/?invite_ticket=${encodeURIComponent(ticket)}`, orgRows[0].name);
+  await logAudit(pool, {
+    orgId: req.params.orgId,
+    actorUserId: req.user.sub,
+    action: 'invite.created',
+    targetType: 'invite',
+    metadata: { email, role },
+  });
 
   res.status(201).json({ message: 'Invite sent.' });
 });

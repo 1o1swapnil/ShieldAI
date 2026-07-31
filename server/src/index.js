@@ -15,6 +15,7 @@ const activityRouter = require('./routes/activity');
 const devicesRouter = require('./routes/devices');
 const orgSessionsRouter = require('./routes/orgSessions');
 const invitesRouter = require('./routes/invites');
+const auditLogRouter = require('./routes/auditLog');
 
 const app = express();
 app.use(cors);
@@ -29,6 +30,7 @@ app.use('/org', coverageRouter);
 app.use('/org', devicesRouter);
 app.use('/org', orgSessionsRouter);
 app.use('/org', invitesRouter);
+app.use('/org', auditLogRouter);
 app.use('/extension', extensionRouter);
 app.use('/tools', toolsRouter);
 app.use('/native-app', nativeAppRouter);

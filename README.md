@@ -57,6 +57,7 @@ psql -d shieldai -f migrations/0010_email_verification.sql
 psql -d shieldai -f migrations/0011_session_revocation.sql
 psql -d shieldai -f migrations/0012_case_insensitive_email.sql
 psql -d shieldai -f migrations/0013_users_org_id_not_null.sql
+psql -d shieldai -f migrations/0014_audit_log.sql
 ```
 
 (Or just use `node scripts/migrate.js` — see Deployment below — it applies whatever's new in `migrations/` in order and tracks what's already run, so it doesn't go stale like this manual list.)
@@ -195,6 +196,7 @@ manifests), and log shipping/monitoring — this gets a pilot running, not a har
 | `GET /auth/sessions`, `POST /auth/sessions/:id/revoke` | self-service session management ("log out other devices") |
 | `POST/GET /org/:orgId/install-tokens`, `.../install-tokens/:id/revoke`, `GET /org/:orgId/devices`, `.../devices/:id/revoke` | admin-issued device credentials (Section 7) |
 | `GET /org/:orgId/sessions`, `POST /org/:orgId/sessions/:id/revoke` | admin kills any session in their org — incident response for a stolen laptop/leaked token |
+| `GET /org/:orgId/audit-log` | unified log of every admin grant/revoke/review action in the org, newest first |
 | `POST /extension/register-device`, `POST /extension/verify-device`, `GET /extension/device-status` | install-token exchange + email verification for devices (a new/unverified email gets a polling ticket, not a token, until the emailed link is clicked) |
 | `GET/POST /consent/*` | monitoring notice, acknowledgement, status (Section 4) |
 | `GET/PATCH /org/:orgId/settings` | jurisdictions, gated feature toggles, DNS/proxy flag |

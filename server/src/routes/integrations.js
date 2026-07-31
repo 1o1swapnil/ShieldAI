@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../db');
 const { fuzzyMatchAiTool } = require('../fuzzyMatch');
 const { requireAuth, requireAdmin, requireOrgMatch } = require('../auth/middleware');
+const { logAudit } = require('../auditLog');
 
 const router = express.Router();
 
@@ -61,6 +62,14 @@ router.patch('/discovered/:id', requireAuth, requireAdmin, async (req, res) => {
     `UPDATE discovered_integrations SET status = $1 WHERE id = $2 RETURNING id, status`,
     [status, req.params.id]
   );
+  await logAudit(pool, {
+    orgId: existing[0].org_id,
+    actorUserId: req.user.sub,
+    action: 'discovered_integration.reviewed',
+    targetType: 'discovered_integration',
+    targetId: req.params.id,
+    metadata: { status },
+  });
   res.json(rows[0]);
 });
 

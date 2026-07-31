@@ -2,6 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const pool = require('../db');
 const { requireAuth, requireAdmin, requireOrgMatch } = require('../auth/middleware');
+const { logAudit } = require('../auditLog');
 
 const router = express.Router();
 
@@ -15,6 +16,14 @@ router.post('/:orgId/install-tokens', requireAuth, requireAdmin, requireOrgMatch
      RETURNING id, token, label, created_at, revoked_at`,
     [req.params.orgId, token, label || null, req.user.sub]
   );
+  await logAudit(pool, {
+    orgId: req.params.orgId,
+    actorUserId: req.user.sub,
+    action: 'install_token.created',
+    targetType: 'install_token',
+    targetId: rows[0].id,
+    metadata: { label: label || null },
+  });
   res.status(201).json(rows[0]);
 });
 
@@ -32,6 +41,13 @@ router.post('/:orgId/install-tokens/:id/revoke', requireAuth, requireAdmin, requ
     [req.params.id, req.params.orgId]
   );
   if (!rows.length) return res.status(404).json({ error: 'not found' });
+  await logAudit(pool, {
+    orgId: req.params.orgId,
+    actorUserId: req.user.sub,
+    action: 'install_token.revoked',
+    targetType: 'install_token',
+    targetId: req.params.id,
+  });
   res.json(rows[0]);
 });
 
@@ -52,6 +68,13 @@ router.post('/:orgId/devices/:id/revoke', requireAuth, requireAdmin, requireOrgM
     [req.params.id, req.params.orgId]
   );
   if (!rows.length) return res.status(404).json({ error: 'not found' });
+  await logAudit(pool, {
+    orgId: req.params.orgId,
+    actorUserId: req.user.sub,
+    action: 'device.revoked',
+    targetType: 'device',
+    targetId: req.params.id,
+  });
   res.json(rows[0]);
 });
 

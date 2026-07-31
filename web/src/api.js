@@ -124,3 +124,5 @@ export const revokeDevice = (orgId, id) => authFetch(`/org/${orgId}/devices/${id
 export const getOrgSessions = (orgId) => authFetch(`/org/${orgId}/sessions`);
 
 export const revokeOrgSession = (orgId, id) => authFetch(`/org/${orgId}/sessions/${id}/revoke`, { method: 'POST' });
+
+export const getAuditLog = (orgId) => authFetch(`/org/${orgId}/audit-log`);

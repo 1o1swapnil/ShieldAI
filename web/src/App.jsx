@@ -14,6 +14,7 @@ import VerifyDevice from './pages/VerifyDevice.jsx';
 import ResetPassword from './pages/ResetPassword.jsx';
 import AcceptInvite from './pages/AcceptInvite.jsx';
 import Invites from './pages/Invites.jsx';
+import AuditLog from './pages/AuditLog.jsx';
 import { getMe, verifyEmail, logout } from './api.js';
 import { getToken, setToken, clearToken } from './auth.js';
 
@@ -126,6 +127,7 @@ export default function App() {
         <button onClick={() => setTab('library')} disabled={tab === 'library'}>Tool Library</button>
         <button onClick={() => setTab('devices')} disabled={tab === 'devices'}>Devices</button>
         <button onClick={() => setTab('invites')} disabled={tab === 'invites'}>Invites</button>
+        <button onClick={() => setTab('audit')} disabled={tab === 'audit'}>Audit Log</button>
         <button onClick={() => setTab('sessions')} disabled={tab === 'sessions'}>Sessions</button>
         <button onClick={() => setTab('integrations')} disabled={tab === 'integrations'}>Discovered Integrations</button>
         <button onClick={() => setTab('employee')} disabled={tab === 'employee'}>What ShieldAI Sees</button>
@@ -139,6 +141,7 @@ export default function App() {
       {tab === 'library' && <ToolLibrary />}
       {tab === 'devices' && <Devices orgId={orgId} />}
       {tab === 'invites' && <Invites orgId={orgId} />}
+      {tab === 'audit' && <AuditLog orgId={orgId} />}
       {tab === 'sessions' && (
         <Sessions orgId={orgId} isAdmin={user.role === 'admin'} currentSessionId={user.sid} />
       )}

@@ -4,6 +4,7 @@ const { defaultActionFor, explain } = require('../classifier/score');
 const { classifyDomain } = require('../classifier/classifyDomain');
 const { upsertUnverifiedTool } = require('../classifier/queue');
 const { requireAuth, requireAdmin, requireOrgMatch } = require('../auth/middleware');
+const { logAudit } = require('../auditLog');
 
 const router = express.Router();
 
@@ -95,6 +96,15 @@ router.patch('/unverified/:id', requireAuth, requireAdmin, async (req, res) => {
     );
     aiToolId = toolRows[0].id;
   }
+
+  await logAudit(pool, {
+    orgId: existing[0].org_id,
+    actorUserId: req.user.sub,
+    action: 'unverified_tool.reviewed',
+    targetType: 'unverified_tool',
+    targetId: req.params.id,
+    metadata: { review_status, domain: rows[0].domain },
+  });
 
   res.json({ review_status, ai_tool_id: aiToolId });
 });
