@@ -87,7 +87,15 @@ fresh one, same "click IS the login" pattern as email verification.
 
 Email (`src/email.js`, via `nodemailer`): unset `SMTP_HOST` (the default) logs the verification link to stdout instead of sending — no real mailbox needed for local dev/tests. Set `SMTP_HOST`, `SMTP_PORT` (default 587), `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, and `SMTP_SECURE=true` if your provider uses implicit TLS (port 465) rather than STARTTLS, to send for real — works with any standard SMTP provider (SES, SendGrid, Postmark, etc.). Registration is transactional: if the email fails to send, the org/user (or device) rows roll back entirely instead of leaving a stuck half-registered account behind.
 
-`0001_base.sql`'s `organizations`/`users` stub has since grown real auth columns (0008) — the rest of the real v1.0 base schema (e.g. a proper invite flow) still isn't part of this addendum.
+`0001_base.sql`'s `organizations`/`users` stub has since grown real auth columns (0008).
+
+Admin invites (`POST /org/:orgId/invites` → `POST /auth/accept-invite`): an admin invites a teammate by email +
+role; there's no invites table, the ticket itself is stateless (same pattern as email verification/password reset)
+and carries `org_id`/`email`/`role`, so `users.email` uniqueness on both ends is what makes it single-use. Clicking
+the link and setting a password creates the account already email-verified (the click is the proof) and logs
+straight in — same "click IS the login" pattern as verify-email/reset-password. There's no server-side list of
+invites sent but not yet accepted as a result — a real invites table is the upgrade path if that visibility turns
+out to matter.
 
 Deploying 0011 forces everyone to re-authenticate: existing tokens have no `sid` claim to match a `sessions` row against, so `requireAuth` correctly treats them as revoked. Unlike 0010's backfill, there's nothing to grandfather here — sessions didn't exist before this migration.
 
@@ -182,6 +190,7 @@ manifests), and log shipping/monitoring — this gets a pilot running, not a har
 |---|---|
 | `POST /auth/register`, `POST /auth/login`, `POST /auth/verify-email`, `GET /auth/me`, `POST /auth/logout` | password auth + JWT sessions + email verification (Section 7) |
 | `POST /auth/forgot-password`, `POST /auth/reset-password` | password reset — single-use ticket, revokes other sessions |
+| `POST /org/:orgId/invites`, `POST /auth/accept-invite` | admin invites a teammate by email + role; accepting sets a password and logs in |
 | `GET /auth/sso/login`, `GET /auth/sso/callback` | generic OIDC SSO login — Okta/Azure AD/any compliant IdP (Section 6) |
 | `GET /auth/sessions`, `POST /auth/sessions/:id/revoke` | self-service session management ("log out other devices") |
 | `POST/GET /org/:orgId/install-tokens`, `.../install-tokens/:id/revoke`, `GET /org/:orgId/devices`, `.../devices/:id/revoke` | admin-issued device credentials (Section 7) |

@@ -71,4 +71,19 @@ async function sendPasswordResetEmail(to, link) {
   });
 }
 
-module.exports = { sendVerificationEmail, sendPasswordResetEmail, getTransporter, isValidEmail, normalizeEmail };
+async function sendInviteEmail(to, link, orgName) {
+  await send({
+    to,
+    subject: "You've been invited to ShieldAI",
+    text: `You've been invited to join ${orgName} on ShieldAI. Click the link below to set a password and get started. This link expires in 7 days:\n\n${link}\n\nIf you weren't expecting this, you can safely ignore this email.`,
+  });
+}
+
+module.exports = {
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+  sendInviteEmail,
+  getTransporter,
+  isValidEmail,
+  normalizeEmail,
+};

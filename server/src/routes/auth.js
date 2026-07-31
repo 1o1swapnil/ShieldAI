@@ -41,10 +41,11 @@ const forgotPasswordLimiter = createRateLimiter({
   message: 'too many password reset attempts from this address, try again later',
 });
 
-// Bootstraps a brand-new org + its first admin. There's no invite flow yet
-// (that's a follow-on piece of Section 7) — this is how org #1 gets created.
-// No session is issued until the email is verified (POST /auth/verify-email)
-// — proves the registrant actually controls this address.
+// Bootstraps a brand-new org + its first admin — this is how org #1 gets
+// created. Every user after that comes through POST /org/:orgId/invites +
+// POST /accept-invite below instead. No session is issued until the email
+// is verified (POST /auth/verify-email) — proves the registrant actually
+// controls this address.
 router.post('/register', registerLimiter, async (req, res) => {
   const { org_name, password } = req.body || {};
   const email = normalizeEmail(req.body?.email);
@@ -146,6 +147,42 @@ router.post('/verify-email', async (req, res) => {
   const sid = await createSession(pool, { userId: user.id, orgId: user.org_id });
   const token = signToken({ sub: user.id, sid, orgId: user.org_id, role: user.role });
   res.json({ token, user });
+});
+
+// Completes an admin-issued invite (POST /org/:orgId/invites): the ticket
+// carries org_id/email/role, so this is how org #2+'s users get created —
+// register only ever creates org #1's admin (see the comment above it).
+// The click IS the login, same pattern as /verify-email: the ticket having
+// been mailed to this address is the proof of ownership, so the account
+// starts out email-verified.
+router.post('/accept-invite', async (req, res) => {
+  const { ticket, password } = req.body || {};
+  if (!ticket || !password) return res.status(400).json({ error: 'ticket and password are required' });
+  if (password.length < 8) return res.status(400).json({ error: 'password must be at least 8 characters' });
+
+  let payload;
+  try {
+    payload = verifyToken(ticket);
+  } catch {
+    return res.status(401).json({ error: 'invalid or expired invite link' });
+  }
+  if (payload.type !== 'org_invite') {
+    return res.status(401).json({ error: 'not an invite ticket' });
+  }
+
+  const { rows: existing } = await pool.query('SELECT id FROM users WHERE email = $1', [payload.email]);
+  if (existing.length) return res.status(409).json({ error: 'email already registered' });
+
+  const { rows } = await pool.query(
+    `INSERT INTO users (org_id, email, password_hash, role, auth_provider, email_verified_at)
+     VALUES ($1, $2, $3, $4, 'password', NOW())
+     RETURNING id, org_id, email, role`,
+    [payload.orgId, payload.email, hashPassword(password), payload.role]
+  );
+  const user = rows[0];
+  const sid = await createSession(pool, { userId: user.id, orgId: user.org_id });
+  const token = signToken({ sub: user.id, sid, orgId: user.org_id, role: user.role });
+  res.status(201).json({ token, user });
 });
 
 // Always returns the same generic response, whether or not the email is

@@ -69,6 +69,16 @@ export const resetPassword = (ticket, password) =>
     body: JSON.stringify({ ticket, password }),
   }).then(json);
 
+export const acceptInvite = (ticket, password) =>
+  fetch(`${API_BASE}/auth/accept-invite`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ticket, password }),
+  }).then(json);
+
+export const inviteUser = (orgId, email, role) =>
+  authFetch(`/org/${orgId}/invites`, { method: 'POST', body: JSON.stringify({ email, role }) });
+
 // Public — no auth required (Section 4.1/3.2 are meant to be readable
 // without a logged-in session).
 export const getNotice = () => fetch(`${API_BASE}/consent/notice`).then(json);

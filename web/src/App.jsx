@@ -12,6 +12,8 @@ import Sessions from './pages/Sessions.jsx';
 import Login from './pages/Login.jsx';
 import VerifyDevice from './pages/VerifyDevice.jsx';
 import ResetPassword from './pages/ResetPassword.jsx';
+import AcceptInvite from './pages/AcceptInvite.jsx';
+import Invites from './pages/Invites.jsx';
 import { getMe, verifyEmail, logout } from './api.js';
 import { getToken, setToken, clearToken } from './auth.js';
 
@@ -22,6 +24,7 @@ export default function App() {
   const [verifyError, setVerifyError] = useState(null);
   const [deviceTicket] = useState(() => new URLSearchParams(window.location.search).get('device_ticket'));
   const [resetTicket, setResetTicket] = useState(() => new URLSearchParams(window.location.search).get('reset_ticket'));
+  const [inviteTicket, setInviteTicket] = useState(() => new URLSearchParams(window.location.search).get('invite_ticket'));
 
   const refreshUser = () => {
     getMe()
@@ -34,7 +37,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (deviceTicket || resetTicket) return; // handled entirely by their own components below, no session needed yet
+    if (deviceTicket || resetTicket || inviteTicket) return; // handled entirely by their own components below, no session needed yet
 
     const params = new URLSearchParams(window.location.search);
 
@@ -68,6 +71,18 @@ export default function App() {
   }, []);
 
   if (deviceTicket) return <VerifyDevice ticket={deviceTicket} />;
+  if (inviteTicket) {
+    return (
+      <AcceptInvite
+        ticket={inviteTicket}
+        onComplete={() => {
+          window.history.replaceState({}, '', window.location.pathname);
+          setInviteTicket(null);
+          refreshUser();
+        }}
+      />
+    );
+  }
   if (resetTicket) {
     return (
       <ResetPassword
@@ -110,6 +125,7 @@ export default function App() {
         <button onClick={() => setTab('unverified')} disabled={tab === 'unverified'}>Unverified Tools</button>
         <button onClick={() => setTab('library')} disabled={tab === 'library'}>Tool Library</button>
         <button onClick={() => setTab('devices')} disabled={tab === 'devices'}>Devices</button>
+        <button onClick={() => setTab('invites')} disabled={tab === 'invites'}>Invites</button>
         <button onClick={() => setTab('sessions')} disabled={tab === 'sessions'}>Sessions</button>
         <button onClick={() => setTab('integrations')} disabled={tab === 'integrations'}>Discovered Integrations</button>
         <button onClick={() => setTab('employee')} disabled={tab === 'employee'}>What ShieldAI Sees</button>
@@ -122,6 +138,7 @@ export default function App() {
       {tab === 'unverified' && <UnverifiedToolsQueue orgId={orgId} />}
       {tab === 'library' && <ToolLibrary />}
       {tab === 'devices' && <Devices orgId={orgId} />}
+      {tab === 'invites' && <Invites orgId={orgId} />}
       {tab === 'sessions' && (
         <Sessions orgId={orgId} isAdmin={user.role === 'admin'} currentSessionId={user.sid} />
       )}
