@@ -122,7 +122,16 @@ Punch list from the pre-pilot review. Not urgent enough to block anything curren
   `docker compose` Postgres container: insert → backup → drop → restore → data intact; decline-the-prompt path
   also verified to abort without touching the DB. Still just dump/restore commands, not retention or off-box
   shipping — that's on the operator.
-- No admin invite flow — can't add a second admin to an org without touching the DB directly.
+- ~~No admin invite flow~~ — **done.** `POST /org/:orgId/invites` (admin, rate-limited like `/auth/register`) mails
+  a stateless ticket carrying `org_id`/`email`/`role` — no invites table, same pattern as email verification /
+  password reset, and `users.email` uniqueness on both ends is what makes the ticket single-use. `POST
+  /auth/accept-invite` sets a password, creates the user already email-verified (the click is the proof), and logs
+  straight in. Web: `Invites` admin tab (`web/src/pages/Invites.jsx`) + an `?invite_ticket=` landing page
+  (`AcceptInvite.jsx`), same wiring as the existing `?reset_ticket=` flow in `App.jsx`. Covered by
+  `server/test/invites.test.js`; verified live end to end (register org #1 admin → invite a teammate as employee →
+  accept → login → confirmed the employee gets 403 on an admin-only route → confirmed re-inviting the now-registered
+  email 409s). No invite-tracking/revocation UI (nothing to list — tickets are stateless) — a real invites table is
+  the upgrade path if that visibility turns out to matter.
 - No unified admin audit log — revocation/review actions are scattered across `reviewed_by`/`revoked_at` columns
   per table (devices, sessions, unverified_tools_queue, discovered_integrations), not one place to look.
 - ~~CI only runs unit tests~~ — **done.** Added an `integration-test` job (`.github/workflows/ci.yml`) with a real
