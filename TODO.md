@@ -87,6 +87,13 @@ Punch list from the pre-pilot review. Not urgent enough to block anything curren
 
 ## Known, already-documented gaps
 
+- ~~`extension/rules.json` hardcoded 2 example domains instead of the real 150+ tool library~~ — **done.**
+  `extension/generate-rules.js` regenerates both `rules.json`'s DNR allow-rules and `manifest.json`'s
+  `content_scripts` match list from `server/seeds/ai_tools.json` (152 domains, deduped/sorted); `--check` mode
+  fails without writing if the committed files have drifted. This also fixes `background.js`'s own comment claim
+  that "the known-150 list is already covered by the static `content_scripts` entry," which wasn't true until now.
+  `build-info.json` regenerated to match. CI's `extension-lint` job now runs the `--check` mode so this can't
+  silently drift back to a placeholder.
 - Extension build-hash "verification" is cosmetic — `POST /extension/config` computes `verified` via
   `isVerifiedBuild()` (`server/src/buildVerify.js`), but nothing security-relevant is gated on it: every real
   endpoint (`/activity/events`, `/consent/acknowledge`, etc.) authorizes purely on the device token, and the only
