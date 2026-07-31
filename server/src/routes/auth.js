@@ -17,24 +17,28 @@ const WEB_ORIGIN = process.env.WEB_ORIGIN || 'http://localhost:5173';
 // stuffing). req.ip reflects the load balancer's address unless
 // `app.set('trust proxy', ...)` is configured for the real deployment.
 const registerLimiter = createRateLimiter({
+  name: 'register',
   windowMs: 60 * 60 * 1000,
   max: 5,
   keyGenerator: (req) => req.ip,
   message: 'too many registration attempts from this address, try again later',
 });
 const loginLimiterByIp = createRateLimiter({
+  name: 'login-ip',
   windowMs: 15 * 60 * 1000,
   max: 30,
   keyGenerator: (req) => req.ip,
   message: 'too many login attempts from this address, try again later',
 });
 const loginLimiterByEmail = createRateLimiter({
+  name: 'login-email',
   windowMs: 15 * 60 * 1000,
   max: 8,
   keyGenerator: (req) => (req.body?.email || '').toLowerCase(),
   message: 'too many login attempts for this account, try again later',
 });
 const forgotPasswordLimiter = createRateLimiter({
+  name: 'forgot-password',
   windowMs: 60 * 60 * 1000,
   max: 5,
   keyGenerator: (req) => req.ip,

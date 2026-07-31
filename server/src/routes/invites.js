@@ -14,6 +14,7 @@ const WEB_ORIGIN = process.env.WEB_ORIGIN || 'http://localhost:5173';
 // otherwise) could otherwise turn this into a spam/phishing vector against
 // arbitrary addresses via ShieldAI's own SMTP relay.
 const inviteLimiter = createRateLimiter({
+  name: 'invite',
   windowMs: 60 * 60 * 1000,
   max: 20,
   keyGenerator: (req) => req.user.sub,
