@@ -113,7 +113,15 @@ Punch list from the pre-pilot review. Not urgent enough to block anything curren
   checklist text (`server/src/notice.js`) is sourced language, not counsel-reviewed.
 - No deployment orchestration beyond `docker compose` (no Kubernetes manifests etc.), no TLS termination, no log
   shipping/monitoring/alerting.
-- No backup/restore procedure documented for the Postgres volume — real risk once there's real customer data in it.
+- ~~No backup/restore procedure documented for the Postgres volume~~ — **done.** `server/scripts/backup.sh` /
+  `restore.sh` run `pg_dump`/`pg_restore` inside the `postgres` container itself (not a host-installed client),
+  keeping the dump format pinned to whatever Postgres version `docker-compose.yml` actually runs — a host/server
+  version mismatch is exactly the failure mode hit while testing this (a newer host `pg_dump` produced a dump the
+  container's own `pg_restore` rejected). `restore.sh` prompts for confirmation before its `--clean --if-exists`
+  drop-and-recreate unless `--yes` is passed. Documented in the README. Verified end to end against a real
+  `docker compose` Postgres container: insert → backup → drop → restore → data intact; decline-the-prompt path
+  also verified to abort without touching the DB. Still just dump/restore commands, not retention or off-box
+  shipping — that's on the operator.
 - No admin invite flow — can't add a second admin to an org without touching the DB directly.
 - No unified admin audit log — revocation/review actions are scattered across `reviewed_by`/`revoked_at` columns
   per table (devices, sessions, unverified_tools_queue, discovered_integrations), not one place to look.
